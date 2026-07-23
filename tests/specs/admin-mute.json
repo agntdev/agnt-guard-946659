@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Mute",
+    "steps": [
+      {
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": {
+              "text": "Mute member for configured duration"
+            }
+          }
+        ],
+        "send": {
+          "callback": "admin:mute"
+        }
+      }
+    ]
+  }
+]
