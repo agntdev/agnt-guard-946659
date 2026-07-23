@@ -51,7 +51,10 @@ export interface ChatData {
   audit: Record<string, InfractionRecord>;
 }
 
-export const VERIFICATION_WINDOW_MS = 30_000;
+/** Join verification window: new members must tap "I'm human" within this time. */
+export const VERIFICATION_WINDOW_MS = 120_000;
+/** Human-readable form of VERIFICATION_WINDOW_MS for user-facing copy and audit logs. */
+export const VERIFICATION_WINDOW_LABEL = "2 minutes";
 export const AUDIT_CAP = 200;
 export const DEFAULT_MUTE_SECONDS = 3600;
 

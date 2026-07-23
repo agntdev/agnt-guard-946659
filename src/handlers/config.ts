@@ -2,11 +2,12 @@ import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
 import { registerMainMenuItem, inlineButton, inlineKeyboard } from "../toolkit/index.js";
 import { requireAdmin } from "../moderation.js";
-import { getChat, putChat } from "../store.js";
+import { getChat, putChat, VERIFICATION_WINDOW_LABEL } from "../store.js";
 
 // GroupGuard — configuration management. Admins edit the welcome text, rules,
 // the spam-escalation threshold, and the notification target for summary
-// reports. All values live in the chat's durable record.
+// reports. All values live in the chat's durable record. The human-verification
+// window is fixed at VERIFICATION_WINDOW_LABEL (2 minutes).
 
 registerMainMenuItem({ label: "⚙️ Settings", data: "config:panel", order: 30 });
 
@@ -22,7 +23,8 @@ function panelKeyboard() {
   ]);
 }
 
-const PANEL_TEXT = "Settings. Tap what you'd like to change.";
+const PANEL_TEXT =
+  `Settings. New members get ${VERIFICATION_WINDOW_LABEL} to verify. Tap what you'd like to change.`;
 
 async function showPanel(ctx: Ctx): Promise<void> {
   const data = await requireAdmin(ctx);

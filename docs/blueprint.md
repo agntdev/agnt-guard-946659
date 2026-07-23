@@ -55,7 +55,7 @@ _Trigger:_ user joins group
 1. Post welcome message with rules and verification button
 2. Restrict message privileges
 3. Wait for verification button press or timeout
-4. If verified within 30s: grant privileges and log verification
+4. If verified within 2 minutes (120s): grant privileges and log verification
 5. If timeout: remove member and post explanation
 
 _Data touched:_ Member, Verification challenge, Infraction
