@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Warn",
+    "steps": [
+      {
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": {
+              "text": "Issue warning to member"
+            }
+          }
+        ],
+        "send": {
+          "callback": "admin:warn"
+        }
+      }
+    ]
+  }
+]
