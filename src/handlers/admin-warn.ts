@@ -1,17 +1,15 @@
 import { Composer } from "grammy";
+import type { Ctx } from "../bot.js";
+import { showMemberList } from "../moderation.js";
 
-// SCAFFOLD — generated from the bot blueprint BEFORE the agent runs.
-// Keep a LIVE registration (.command / .callbackQuery / …) so this feature is
-// never an empty stub. Replace the reply body with real logic + copy; if you
-// change the user-facing text, update tests/specs to match EXACTLY.
-// Do NOT rewrite src/bot.ts — buildBot() already auto-loads this module.
-// Menu: wire this into /start via registerMainMenuItem({ label: "Warn", data: "admin:warn" }) if the toolkit exposes it.
+// GroupGuard — "Warn" admin action. Opens the member picker; selecting a member
+// prompts for a reason (handled in mod.ts) and records a warning infraction.
 
-const composer = new Composer();
+const composer = new Composer<Ctx>();
 
 composer.callbackQuery("admin:warn", async (ctx) => {
   await ctx.answerCallbackQuery();
-  await ctx.reply("Issue warning to member");
+  await showMemberList(ctx, "warn");
 });
 
 export default composer;

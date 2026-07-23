@@ -1,19 +1,56 @@
 [
   {
-    "name": "Mute",
+    "name": "Mute a member end-to-end",
     "steps": [
       {
+        "send": {
+          "update": {
+            "update_id": 1,
+            "message": {
+              "message_id": 1,
+              "date": 0,
+              "chat": { "id": 110, "type": "supergroup", "title": "Test" },
+              "from": { "id": 1, "is_bot": false, "first_name": "Admin" },
+              "new_chat_members": [
+                { "id": 501, "is_bot": false, "first_name": "Quiet" }
+              ]
+            }
+          }
+        },
+        "expect": [{ "method": "sendMessage" }]
+      },
+      {
+        "send": { "text": "/mod", "chatId": 110, "userId": 1 },
         "expect": [
           {
             "method": "sendMessage",
-            "payload": {
-              "text": "Mute member for configured duration"
-            }
+            "payload": { "text": "Moderation panel. Pick an action, then choose a member to apply it to." }
           }
-        ],
-        "send": {
-          "callback": "admin:mute"
-        }
+        ]
+      },
+      {
+        "send": { "callback": "admin:mute", "chatId": 110, "userId": 1 },
+        "expect": [
+          { "method": "editMessageText", "payload": { "text": "Pick a member to mute:" } }
+        ]
+      },
+      {
+        "send": { "callback": "act:mute:501", "chatId": 110, "userId": 1 },
+        "expect": [
+          {
+            "method": "editMessageText",
+            "payload": { "text": "How long should I mute Quiet? Send a duration like 30m, 1h, or 2d (or /cancel)." }
+          }
+        ]
+      },
+      {
+        "send": { "text": "1h", "chatId": 110, "userId": 1 },
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": { "text": "🔇 Muted Quiet for 1h." }
+          }
+        ]
       }
     ]
   }

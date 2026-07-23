@@ -1,19 +1,56 @@
 [
   {
-    "name": "Kick",
+    "name": "Kick a member end-to-end",
     "steps": [
       {
+        "send": {
+          "update": {
+            "update_id": 1,
+            "message": {
+              "message_id": 1,
+              "date": 0,
+              "chat": { "id": 120, "type": "supergroup", "title": "Test" },
+              "from": { "id": 1, "is_bot": false, "first_name": "Admin" },
+              "new_chat_members": [
+                { "id": 502, "is_bot": false, "first_name": "Trouble" }
+              ]
+            }
+          }
+        },
+        "expect": [{ "method": "sendMessage" }]
+      },
+      {
+        "send": { "text": "/mod", "chatId": 120, "userId": 1 },
         "expect": [
           {
             "method": "sendMessage",
-            "payload": {
-              "text": "Remove member from group"
-            }
+            "payload": { "text": "Moderation panel. Pick an action, then choose a member to apply it to." }
           }
-        ],
-        "send": {
-          "callback": "admin:kick"
-        }
+        ]
+      },
+      {
+        "send": { "callback": "admin:kick", "chatId": 120, "userId": 1 },
+        "expect": [
+          { "method": "editMessageText", "payload": { "text": "Pick a member to kick:" } }
+        ]
+      },
+      {
+        "send": { "callback": "act:kick:502", "chatId": 120, "userId": 1 },
+        "expect": [
+          {
+            "method": "editMessageText",
+            "payload": { "text": "Send a reason for this kick of Trouble (or /cancel)." }
+          }
+        ]
+      },
+      {
+        "send": { "text": "rule breaking", "chatId": 120, "userId": 1 },
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": { "text": "👢 Kicked Trouble: rule breaking." }
+          }
+        ]
       }
     ]
   }

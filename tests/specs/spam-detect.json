@@ -1,0 +1,29 @@
+[
+  {
+    "name": "Spam with a link is warned",
+    "steps": [
+      {
+        "send": {
+          "update": {
+            "update_id": 1,
+            "message": {
+              "message_id": 1,
+              "date": 0,
+              "chat": { "id": 300, "type": "supergroup", "title": "Test" },
+              "from": { "id": 600, "is_bot": false, "first_name": "Spammy" },
+              "text": "Check this out http://scam.example"
+            }
+          }
+        },
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": {
+              "text": "⚠️ Spammy: that looked like spam (contains a link). Repeated spam leads to a mute, kick, or ban."
+            }
+          }
+        ]
+      }
+    ]
+  }
+]
