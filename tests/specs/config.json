@@ -16,7 +16,7 @@
         "expect": [
           {
             "method": "editMessageText",
-            "payload": { "text": "Settings. Tap what you'd like to change." }
+            "payload": { "text": "Settings. New members get 2 minutes to verify. Tap what you'd like to change." }
           }
         ]
       },

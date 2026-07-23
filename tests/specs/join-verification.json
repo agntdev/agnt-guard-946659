@@ -17,7 +17,14 @@
             }
           }
         },
-        "expect": [{ "method": "sendMessage" }]
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": {
+              "text": "Welcome, Rook!\n\nWelcome to the group! Tap the button below to verify you're human.\n\n📋 Rules:\n1. Be respectful.\n2. No spam or unsolicited links.\n3. No harassment.\n4. Keep it on-topic.\n\nYou have 2 minutes to tap the button and verify you're human — otherwise you'll be removed."
+            }
+          }
+        ]
       },
       {
         "send": { "callback": "verification:confirm", "chatId": 210, "userId": 700 },
