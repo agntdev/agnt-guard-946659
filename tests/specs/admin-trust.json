@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Mark Trusted",
+    "steps": [
+      {
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": {
+              "text": "Mark user as trusted to exempt from auto-moderation"
+            }
+          }
+        ],
+        "send": {
+          "callback": "admin:trust"
+        }
+      }
+    ]
+  }
+]
