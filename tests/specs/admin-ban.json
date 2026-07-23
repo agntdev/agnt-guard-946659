@@ -1,19 +1,56 @@
 [
   {
-    "name": "Ban",
+    "name": "Ban a member end-to-end",
     "steps": [
       {
+        "send": {
+          "update": {
+            "update_id": 1,
+            "message": {
+              "message_id": 1,
+              "date": 0,
+              "chat": { "id": 130, "type": "supergroup", "title": "Test" },
+              "from": { "id": 1, "is_bot": false, "first_name": "Admin" },
+              "new_chat_members": [
+                { "id": 503, "is_bot": false, "first_name": "Spammer" }
+              ]
+            }
+          }
+        },
+        "expect": [{ "method": "sendMessage" }]
+      },
+      {
+        "send": { "text": "/mod", "chatId": 130, "userId": 1 },
         "expect": [
           {
             "method": "sendMessage",
-            "payload": {
-              "text": "Permanently ban member"
-            }
+            "payload": { "text": "Moderation panel. Pick an action, then choose a member to apply it to." }
           }
-        ],
-        "send": {
-          "callback": "admin:ban"
-        }
+        ]
+      },
+      {
+        "send": { "callback": "admin:ban", "chatId": 130, "userId": 1 },
+        "expect": [
+          { "method": "editMessageText", "payload": { "text": "Pick a member to ban:" } }
+        ]
+      },
+      {
+        "send": { "callback": "act:ban:503", "chatId": 130, "userId": 1 },
+        "expect": [
+          {
+            "method": "editMessageText",
+            "payload": { "text": "Send a reason for this ban of Spammer (or /cancel)." }
+          }
+        ]
+      },
+      {
+        "send": { "text": "repeat spam", "chatId": 130, "userId": 1 },
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": { "text": "⛔ Banned Spammer: repeat spam." }
+          }
+        ]
       }
     ]
   }

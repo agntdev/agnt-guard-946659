@@ -1,19 +1,56 @@
 [
   {
-    "name": "Warn",
+    "name": "Warn a member end-to-end",
     "steps": [
       {
+        "send": {
+          "update": {
+            "update_id": 1,
+            "message": {
+              "message_id": 1,
+              "date": 0,
+              "chat": { "id": 100, "type": "supergroup", "title": "Test" },
+              "from": { "id": 1, "is_bot": false, "first_name": "Admin" },
+              "new_chat_members": [
+                { "id": 500, "is_bot": false, "first_name": "Newbie" }
+              ]
+            }
+          }
+        },
+        "expect": [{ "method": "sendMessage" }]
+      },
+      {
+        "send": { "text": "/mod", "chatId": 100, "userId": 1 },
         "expect": [
           {
             "method": "sendMessage",
-            "payload": {
-              "text": "Issue warning to member"
-            }
+            "payload": { "text": "Moderation panel. Pick an action, then choose a member to apply it to." }
           }
-        ],
-        "send": {
-          "callback": "admin:warn"
-        }
+        ]
+      },
+      {
+        "send": { "callback": "admin:warn", "chatId": 100, "userId": 1 },
+        "expect": [
+          { "method": "editMessageText", "payload": { "text": "Pick a member to warn:" } }
+        ]
+      },
+      {
+        "send": { "callback": "act:warn:500", "chatId": 100, "userId": 1 },
+        "expect": [
+          {
+            "method": "editMessageText",
+            "payload": { "text": "Send a reason for this warn of Newbie (or /cancel)." }
+          }
+        ]
+      },
+      {
+        "send": { "text": "stop spamming", "chatId": 100, "userId": 1 },
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": { "text": "⚠️ Warned Newbie: stop spamming. They've been warned 1 time(s)." }
+          }
+        ]
       }
     ]
   }

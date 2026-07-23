@@ -1,19 +1,15 @@
 [
   {
-    "name": "/mod",
+    "name": "/mod opens the admin moderation panel",
     "steps": [
       {
+        "send": { "text": "/mod", "chatId": 1, "userId": 1 },
         "expect": [
           {
             "method": "sendMessage",
-            "payload": {
-              "text": "Open admin moderation panel"
-            }
+            "payload": { "text": "Moderation panel. Pick an action, then choose a member to apply it to." }
           }
-        ],
-        "send": {
-          "text": "/mod"
-        }
+        ]
       }
     ]
   }

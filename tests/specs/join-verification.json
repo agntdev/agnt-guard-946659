@@ -1,0 +1,33 @@
+[
+  {
+    "name": "New member joins, verifies within the window",
+    "steps": [
+      {
+        "send": {
+          "update": {
+            "update_id": 1,
+            "message": {
+              "message_id": 1,
+              "date": 0,
+              "chat": { "id": 210, "type": "supergroup", "title": "Test" },
+              "from": { "id": 1, "is_bot": false, "first_name": "Admin" },
+              "new_chat_members": [
+                { "id": 700, "is_bot": false, "first_name": "Rook" }
+              ]
+            }
+          }
+        },
+        "expect": [{ "method": "sendMessage" }]
+      },
+      {
+        "send": { "callback": "verification:confirm", "chatId": 210, "userId": 700 },
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": { "text": "✅ Thanks, Rook — you're verified and can send messages now." }
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -1,19 +1,47 @@
 [
   {
-    "name": "Mark Trusted",
+    "name": "Mark a member trusted end-to-end",
     "steps": [
       {
+        "send": {
+          "update": {
+            "update_id": 1,
+            "message": {
+              "message_id": 1,
+              "date": 0,
+              "chat": { "id": 140, "type": "supergroup", "title": "Test" },
+              "from": { "id": 1, "is_bot": false, "first_name": "Admin" },
+              "new_chat_members": [
+                { "id": 504, "is_bot": false, "first_name": "Regular" }
+              ]
+            }
+          }
+        },
+        "expect": [{ "method": "sendMessage" }]
+      },
+      {
+        "send": { "text": "/mod", "chatId": 140, "userId": 1 },
         "expect": [
           {
             "method": "sendMessage",
-            "payload": {
-              "text": "Mark user as trusted to exempt from auto-moderation"
-            }
+            "payload": { "text": "Moderation panel. Pick an action, then choose a member to apply it to." }
           }
-        ],
-        "send": {
-          "callback": "admin:trust"
-        }
+        ]
+      },
+      {
+        "send": { "callback": "admin:trust", "chatId": 140, "userId": 1 },
+        "expect": [
+          { "method": "editMessageText", "payload": { "text": "Pick a member to mark as trusted:" } }
+        ]
+      },
+      {
+        "send": { "callback": "act:trust:504", "chatId": 140, "userId": 1 },
+        "expect": [
+          {
+            "method": "editMessageText",
+            "payload": { "text": "✅ Regular is now trusted — exempt from auto-moderation." }
+          }
+        ]
       }
     ]
   }

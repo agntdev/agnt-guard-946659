@@ -1,19 +1,15 @@
 [
   {
-    "name": "I'm human",
+    "name": "I'm human button with no pending verification",
     "steps": [
       {
+        "send": { "callback": "verification:confirm", "chatId": 200, "userId": 1 },
         "expect": [
           {
             "method": "sendMessage",
-            "payload": {
-              "text": "Verify new member identity to gain message privileges"
-            }
+            "payload": { "text": "No verification needed — you can send messages freely." }
           }
-        ],
-        "send": {
-          "callback": "verification:confirm"
-        }
+        ]
       }
     ]
   }

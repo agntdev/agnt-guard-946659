@@ -1,17 +1,15 @@
 import { Composer } from "grammy";
+import type { Ctx } from "../bot.js";
+import { showMemberList } from "../moderation.js";
 
-// SCAFFOLD — generated from the bot blueprint BEFORE the agent runs.
-// Keep a LIVE registration (.command / .callbackQuery / …) so this feature is
-// never an empty stub. Replace the reply body with real logic + copy; if you
-// change the user-facing text, update tests/specs to match EXACTLY.
-// Do NOT rewrite src/bot.ts — buildBot() already auto-loads this module.
-// Menu: wire this into /start via registerMainMenuItem({ label: "Kick", data: "admin:kick" }) if the toolkit exposes it.
+// GroupGuard — "Kick" admin action. Opens the member picker; selecting a member
+// prompts for a reason (handled in mod.ts), then removes them from the group.
 
-const composer = new Composer();
+const composer = new Composer<Ctx>();
 
 composer.callbackQuery("admin:kick", async (ctx) => {
   await ctx.answerCallbackQuery();
-  await ctx.reply("Remove member from group");
+  await showMemberList(ctx, "kick");
 });
 
 export default composer;

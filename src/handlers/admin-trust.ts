@@ -1,17 +1,16 @@
 import { Composer } from "grammy";
+import type { Ctx } from "../bot.js";
+import { showMemberList } from "../moderation.js";
 
-// SCAFFOLD — generated from the bot blueprint BEFORE the agent runs.
-// Keep a LIVE registration (.command / .callbackQuery / …) so this feature is
-// never an empty stub. Replace the reply body with real logic + copy; if you
-// change the user-facing text, update tests/specs to match EXACTLY.
-// Do NOT rewrite src/bot.ts — buildBot() already auto-loads this module.
-// Menu: wire this into /start via registerMainMenuItem({ label: "Mark Trusted", data: "admin:trust" }) if the toolkit exposes it.
+// GroupGuard — "Mark Trusted" admin action. Opens the member picker; selecting a
+// member toggles their trusted flag immediately (no reason needed), exempting
+// them from auto-moderation.
 
-const composer = new Composer();
+const composer = new Composer<Ctx>();
 
 composer.callbackQuery("admin:trust", async (ctx) => {
   await ctx.answerCallbackQuery();
-  await ctx.reply("Mark user as trusted to exempt from auto-moderation");
+  await showMemberList(ctx, "trust");
 });
 
 export default composer;
