@@ -1,9 +1,9 @@
 import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
 import { registerMainMenuItem, inlineButton, inlineKeyboard } from "../toolkit/index.js";
-import { getChat, putChat, logAction, VERIFICATION_WINDOW_LABEL, type ChatData } from "../store.js";
+import { getChat, putChat, logAction, purgeActivityAcrossChats, VERIFICATION_WINDOW_LABEL, type ChatData } from "../store.js";
 import { answerCallback, editOrReply } from "../telegram.js";
-import { isBotOwner } from "../ownership.js";
+import { isBotOwner, isDeploymentOwner, isOperator } from "../ownership.js";
 
 // GroupGuard — configuration management. Admins edit the welcome text, rules,
 // the spam-escalation threshold, and the notification target for summary
@@ -21,6 +21,7 @@ function panelKeyboard() {
     [inlineButton("🔢 Spam threshold", "config:edit:threshold")],
     [inlineButton("🛡 Spam actions", "config:actions")],
     [inlineButton("🔔 Summary target", "config:edit:notify")],
+    [inlineButton("Clear activity data", "config:privacy")],
     [inlineButton("⬅️ Back to menu", "menu:main")],
   ]);
 }
@@ -29,6 +30,7 @@ const PANEL_TEXT =
   `Settings. New members get ${VERIFICATION_WINDOW_LABEL} to verify. Tap what you'd like to change.`;
 
 const OWNER_DENIED = "Only the bot owner may edit bot settings.";
+const PRIVACY_DENIED = "Only the deployment owner can clear activity data across groups.";
 
 /**
  * Settings are deliberately stricter than moderation: only the configured
@@ -103,6 +105,49 @@ composer.callbackQuery("config:edit:notify", async (ctx) => {
   await editOrReply(ctx, "✅ Saved. This chat will receive moderation summaries.", {
     reply_markup: backToPanelKeyboard(),
   });
+});
+
+function privacyConfirmKeyboard() {
+  return inlineKeyboard([
+    [inlineButton("Clear activity data", "config:privacy:confirm")],
+    [inlineButton("⬅️ Back to settings", "config:panel")],
+  ]);
+}
+
+/** This deliberately requires the deployment owner rather than a per-group
+ * owner: the confirmed operation clears activity from every indexed group. */
+function canClearAllActivity(ctx: Ctx): boolean {
+  return isOperator(ctx) || isDeploymentOwner(ctx);
+}
+
+composer.callbackQuery("config:privacy", async (ctx) => {
+  await answerCallback(ctx);
+  if (!canClearAllActivity(ctx)) {
+    await ctx.reply(PRIVACY_DENIED);
+    return;
+  }
+  await editOrReply(ctx,
+    "This permanently clears stored verification activity, member records, moderation actions, reports, and counters across every GroupGuard group. Settings, rules, templates, admin lists, and summary targets stay."
+    + "\n\nTap Clear activity data to continue.",
+    { reply_markup: privacyConfirmKeyboard() },
+  );
+});
+
+composer.callbackQuery("config:privacy:confirm", async (ctx) => {
+  await answerCallback(ctx);
+  if (!canClearAllActivity(ctx)) {
+    await ctx.reply(PRIVACY_DENIED);
+    return;
+  }
+  await purgeActivityAcrossChats();
+  ctx.session.step = "idle";
+  ctx.session.pendingAction = undefined;
+  ctx.session.pendingTarget = undefined;
+  ctx.session.configEditorId = undefined;
+  await editOrReply(ctx,
+    "Activity data has been permanently cleared across GroupGuard. Verification challenges, member records, moderation actions, reports, logs, and counters are now empty. Settings are unchanged.",
+    { reply_markup: panelKeyboard() },
+  );
 });
 
 function actionsKeyboard(data: ChatData) {

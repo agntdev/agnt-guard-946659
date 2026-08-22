@@ -13,4 +13,16 @@
       }
     ]
   }
+  ,
+  {
+    "name": "Only the deployment owner can open the global activity reset",
+    "steps": [
+      {
+        "send": { "callback": "config:privacy", "chatId": 401, "userId": 1 },
+        "expect": [
+          { "method": "sendMessage", "payload": { "text": "Only the deployment owner can clear activity data across groups." } }
+        ]
+      }
+    ]
+  }
 ]
