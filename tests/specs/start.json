@@ -12,5 +12,45 @@
         ]
       }
     ]
+  },
+  {
+    "name": "Returning to an already open menu only acknowledges the tap",
+    "strict": true,
+    "steps": [
+      {
+        "send": {
+          "update": {
+            "update_id": 2,
+            "callback_query": {
+              "id": "2",
+              "from": { "id": 1, "is_bot": false, "first_name": "User" },
+              "message": {
+                "message_id": 2,
+                "date": 0,
+                "chat": { "id": 1, "type": "private", "first_name": "User" },
+                "from": { "id": 42, "is_bot": true, "first_name": "TestBot" },
+                "text": "👋 Welcome! Tap a button below to get started.",
+                "reply_markup": {
+                  "inline_keyboard": [
+                    [
+                      { "text": "✅ I'm human", "callback_data": "verification:confirm" },
+                      { "text": "🛡 Moderation", "callback_data": "admin:panel" }
+                    ],
+                    [
+                      { "text": "📊 Stats", "callback_data": "admin:stats" },
+                      { "text": "⚙️ Settings", "callback_data": "config:panel" }
+                    ],
+                    [{ "text": "❓ Help", "callback_data": "menu:help" }]
+                  ]
+                }
+              },
+              "chat_instance": "ci-1",
+              "data": "menu:main"
+            }
+          }
+        },
+        "expect": [{ "method": "answerCallbackQuery" }]
+      }
+    ]
   }
 ]

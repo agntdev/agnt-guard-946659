@@ -57,6 +57,21 @@ export async function editOrReply(
   text: string,
   extra?: Parameters<Ctx["editMessageText"]>[1],
 ): Promise<void> {
+  // A webhook may be retried after Telegram has already applied the edit. In
+  // that case the callback still needs its acknowledgement, but asking
+  // Telegram to apply the same text and keyboard again produces a noisy 400.
+  // Only make this short-circuit for a message sent by this bot; a callback on
+  // another sender's message must retain the normal edit-then-reply fallback.
+  const source = ctx.callbackQuery?.message;
+  if (
+    source &&
+    "text" in source &&
+    source.from?.is_bot === true &&
+    source.text === text &&
+    sameReplyMarkup(source.reply_markup, extra?.reply_markup)
+  ) {
+    return;
+  }
   try {
     await ctx.editMessageText(text, extra);
   } catch (error) {
@@ -64,4 +79,11 @@ export async function editOrReply(
     if (/message is not modified/i.test(message)) return;
     await ctx.reply(text, extra).catch(() => undefined);
   }
+}
+
+/** Telegram returns inline markup as plain JSON. Comparing the serialized
+ * payload is sufficient here and avoids an unnecessary edit on retried menu
+ * callbacks. Undefined means no keyboard in both places. */
+function sameReplyMarkup(current: unknown, desired: unknown): boolean {
+  return JSON.stringify(current ?? null) === JSON.stringify(desired ?? null);
 }
