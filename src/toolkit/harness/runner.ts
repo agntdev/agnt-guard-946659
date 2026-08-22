@@ -104,6 +104,13 @@ function settle(): Promise<void> {
 /** A plausible deterministic stub for an outgoing call so handlers can chain
  *  (e.g. reply() → editMessageText(returnedMessageId)). */
 function stubResult(method: string, payload: Record<string, unknown>, msgId: number): unknown {
+  if (method === "getChatMember") {
+    return {
+      status: "administrator",
+      user: { id: payload.user_id ?? 1, is_bot: false, first_name: "Test" },
+      can_manage_chat: true,
+    };
+  }
   if (/^(send|edit|copy|forward)/.test(method)) {
     return {
       message_id: msgId,

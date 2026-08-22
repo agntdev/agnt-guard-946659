@@ -1,6 +1,7 @@
 import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
 import { inlineButton, inlineKeyboard } from "../toolkit/index.js";
+import { answerCallback, editOrReply } from "../telegram.js";
 
 // /help — plain-language explanation for non-technical users. This bot is
 // button-driven: tell the user to tap /start to open the menu rather than listing
@@ -9,9 +10,9 @@ import { inlineButton, inlineKeyboard } from "../toolkit/index.js";
 const composer = new Composer<Ctx>();
 
 const HELP =
-  "ℹ️ GroupGuard verifies new members within 2 minutes, catches spam, and gives admins tools to moderate.\n\n" +
-  "Tap /start to open the menu, then pick what you want from the buttons.\n\n" +
-  "Everything in this bot is reachable by tapping — you don't need to remember any commands.";
+  "GroupGuard keeps your group protected.\n\n" +
+  "/start — Start the bot\n/help — Show all commands\n/warn — Warn a member\n/warnings — Check a member's warnings\n/resetwarn — Remove a member's warnings\n/mute — Mute a member\n/unmute — Unmute a member\n/kick — Remove a member from the group\n/ban — Ban a member\n/unban — Unban a member\n/rules — Show group rules\n\n" +
+  "For member actions, reply to that member's message before sending the command.";
 
 const backToMenu = inlineKeyboard([[inlineButton("⬅️ Back to menu", "menu:main")]]);
 
@@ -20,8 +21,8 @@ composer.command("help", async (ctx) => {
 });
 
 composer.callbackQuery("menu:help", async (ctx) => {
-  await ctx.answerCallbackQuery();
-  await ctx.editMessageText(HELP, { reply_markup: backToMenu });
+  await answerCallback(ctx);
+  await editOrReply(ctx, HELP, { reply_markup: backToMenu });
 });
 
 export default composer;

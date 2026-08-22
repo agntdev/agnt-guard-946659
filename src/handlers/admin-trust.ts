@@ -1,6 +1,7 @@
 import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
 import { showMemberList } from "../moderation.js";
+import { answerCallback } from "../telegram.js";
 
 // GroupGuard — "Mark Trusted" admin action. Opens the member picker; selecting a
 // member toggles their trusted flag immediately (no reason needed), exempting
@@ -9,7 +10,7 @@ import { showMemberList } from "../moderation.js";
 const composer = new Composer<Ctx>();
 
 composer.callbackQuery("admin:trust", async (ctx) => {
-  await ctx.answerCallbackQuery();
+  await answerCallback(ctx);
   await showMemberList(ctx, "trust");
 });
 

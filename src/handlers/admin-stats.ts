@@ -3,6 +3,7 @@ import type { Ctx } from "../bot.js";
 import { registerMainMenuItem, inlineButton, inlineKeyboard } from "../toolkit/index.js";
 import { requireAdmin, displayName } from "../moderation.js";
 import { getChat, type ChatData, type Action } from "../store.js";
+import { answerCallback, editOrReply } from "../telegram.js";
 
 // GroupGuard — "View Stats". Aggregates the chat's audit log (capped at 200) into
 // a concise summary admins can read at a glance, with an option to push the same
@@ -41,14 +42,14 @@ const statsKeyboard = inlineKeyboard([
 ]);
 
 composer.callbackQuery("admin:stats", async (ctx) => {
-  await ctx.answerCallbackQuery();
+  await answerCallback(ctx);
   const data = await requireAdmin(ctx);
   if (!data) return;
-  await ctx.editMessageText(summarize(data), { reply_markup: statsKeyboard });
+  await editOrReply(ctx, summarize(data), { reply_markup: statsKeyboard });
 });
 
 composer.callbackQuery("admin:stats:send", async (ctx) => {
-  await ctx.answerCallbackQuery();
+  await answerCallback(ctx);
   const data = await requireAdmin(ctx);
   if (!data) return;
   const target = data.config.notifyTarget;
@@ -60,13 +61,8 @@ composer.callbackQuery("admin:stats:send", async (ctx) => {
   try {
     await ctx.api.sendMessage(target, text);
     await ctx.reply(`Sent the summary to chat ${target}.`);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (/403|forbidden|blocked/i.test(msg)) {
-      await ctx.reply("Couldn't deliver — the target hasn't started the bot or has blocked it. They need to /start it first.");
-    } else {
-      await ctx.reply(`Couldn't deliver the summary: ${msg}`);
-    }
+  } catch {
+    await ctx.reply("Couldn't deliver the summary. Check the notification target and try again.");
   }
 });
 

@@ -79,8 +79,8 @@ export async function setDefaultCommands<S extends object>(
   extra: ReadonlyArray<{ command: string; description: string }> = [],
 ): Promise<void> {
   const commands = [
-    { command: "start", description: "Open the menu" },
-    { command: "help", description: "How this bot works" },
+    { command: "start", description: "Start the bot" },
+    { command: "help", description: "Show all commands" },
     ...extra,
   ];
   try {
