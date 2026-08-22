@@ -3,6 +3,7 @@ import type { Ctx } from "../bot.js";
 import { registerMainMenuItem, inlineButton, inlineKeyboard } from "../toolkit/index.js";
 import { requireAdmin } from "../moderation.js";
 import { getChat, putChat, VERIFICATION_WINDOW_LABEL } from "../store.js";
+import { answerCallback, editOrReply } from "../telegram.js";
 
 // GroupGuard — configuration management. Admins edit the welcome text, rules,
 // the spam-escalation threshold, and the notification target for summary
@@ -29,11 +30,11 @@ const PANEL_TEXT =
 async function showPanel(ctx: Ctx): Promise<void> {
   const data = await requireAdmin(ctx);
   if (!data) return;
-  await ctx.editMessageText(PANEL_TEXT, { reply_markup: panelKeyboard() });
+  await editOrReply(ctx, PANEL_TEXT, { reply_markup: panelKeyboard() });
 }
 
 composer.callbackQuery("config:panel", async (ctx) => {
-  await ctx.answerCallbackQuery();
+  await answerCallback(ctx);
   ctx.session.step = "idle";
   await showPanel(ctx);
 });
@@ -42,28 +43,28 @@ async function startEdit(ctx: Ctx, step: Ctx["session"]["step"], prompt: string)
   const data = await requireAdmin(ctx);
   if (!data) return;
   ctx.session.step = step;
-  await ctx.editMessageText(prompt, {
+  await editOrReply(ctx, prompt, {
     reply_markup: inlineKeyboard([[inlineButton("⬅️ Cancel", "config:panel")]]),
   });
 }
 
 composer.callbackQuery("config:edit:welcome", async (ctx) => {
-  await ctx.answerCallbackQuery();
+  await answerCallback(ctx);
   await startEdit(ctx, "config_welcome", "Send the new welcome text (or /cancel).");
 });
 
 composer.callbackQuery("config:edit:rules", async (ctx) => {
-  await ctx.answerCallbackQuery();
+  await answerCallback(ctx);
   await startEdit(ctx, "config_rules", "Send the new rules (one per line, or /cancel).");
 });
 
 composer.callbackQuery("config:edit:threshold", async (ctx) => {
-  await ctx.answerCallbackQuery();
+  await answerCallback(ctx);
   await startEdit(ctx, "config_threshold", "Send the new spam threshold — a number like 2 (or /cancel).");
 });
 
 composer.callbackQuery("config:edit:notify", async (ctx) => {
-  await ctx.answerCallbackQuery();
+  await answerCallback(ctx);
   await startEdit(ctx, "config_notify", "Send the chat id that should receive summary reports (or /cancel).");
 });
 

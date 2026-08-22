@@ -15,6 +15,7 @@ import {
 } from "./store.js";
 import { now } from "./clock.js";
 import { inlineButton, inlineKeyboard, type InlineKeyboardMarkup } from "./toolkit/index.js";
+import { editOrReply } from "./telegram.js";
 
 export function displayName(firstName: string, userId: number): string {
   return firstName && firstName.trim() !== "" ? firstName : `user ${userId}`;
@@ -49,8 +50,18 @@ export function memberListKeyboard(data: ChatData, action: Action): InlineKeyboa
 export async function requireAdmin(ctx: Ctx): Promise<ChatData | null> {
   if (!ctx.chat || !ctx.from) return null;
   const data = await getChat(ctx.chat.id);
-  if (!isAdmin(data, ctx.from.id)) {
-    await ctx.reply("Only group admins can do that. Tap /mod first if you're the group owner.");
+  let permitted = isAdmin(data, ctx.from.id);
+  try {
+    const member = await ctx.api.getChatMember(ctx.chat.id, ctx.from.id);
+    permitted = member.status === "creator" || member.status === "administrator";
+    if (permitted && !data.adminIds.includes(ctx.from.id)) data.adminIds.push(ctx.from.id);
+    if (!permitted) data.adminIds = data.adminIds.filter((id) => id !== ctx.from!.id);
+    await putChat(ctx.chat.id, data);
+  } catch {
+    // A previously verified admin remains usable during a short Telegram outage.
+  }
+  if (!permitted) {
+    await ctx.reply("Only group admins can manage moderation here.");
     return null;
   }
   return data;
@@ -161,7 +172,7 @@ export async function showMemberList(ctx: Ctx, action: Action): Promise<void> {
   const data = await requireAdmin(ctx);
   if (!data) return;
   if (data.memberIds.length === 0) {
-    await ctx.editMessageText(
+    await editOrReply(ctx,
       "No members yet — once people join, you'll be able to pick them here.",
       { reply_markup: inlineKeyboard([[inlineButton("⬅️ Back to panel", "admin:panel")]]) },
     );
@@ -172,7 +183,7 @@ export async function showMemberList(ctx: Ctx, action: Action): Promise<void> {
     action === "mute" ? "mute" :
     action === "kick" ? "kick" :
     action === "ban" ? "ban" : "mark as trusted";
-  await ctx.editMessageText(`Pick a member to ${verb}:`, {
+  await editOrReply(ctx, `Pick a member to ${verb}:`, {
     reply_markup: memberListKeyboard(data, action),
   });
 }

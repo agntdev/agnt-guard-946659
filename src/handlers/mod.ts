@@ -1,7 +1,7 @@
 import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
 import { registerMainMenuItem, inlineButton, inlineKeyboard } from "../toolkit/index.js";
-import { ensureAdmin, getChat } from "../store.js";
+import { getChat } from "../store.js";
 import {
   modPanelKeyboard,
   requireAdmin,
@@ -13,6 +13,7 @@ import {
   displayName,
   putChat,
 } from "../moderation.js";
+import { answerCallback, editOrReply } from "../telegram.js";
 
 // GroupGuard — admin moderation panel (/mod) and the shared action flow that
 // warn/mute/kick/ban/trust funnel through. Each action first lists members as
@@ -26,20 +27,22 @@ const composer = new Composer<Ctx>();
 const PANEL_TEXT =
   "Moderation panel. Pick an action, then choose a member to apply it to.";
 
+// Kept as a compatibility shortcut for existing groups. It is intentionally not
+// included in Telegram's published command list; the Moderation menu is primary.
 composer.command("mod", async (ctx) => {
-  if (!ctx.chat || !ctx.from) return;
-  await ensureAdmin(ctx.chat.id, ctx.from.id);
+  const data = await requireAdmin(ctx);
+  if (!data) return;
   await ctx.reply(PANEL_TEXT, { reply_markup: modPanelKeyboard() });
 });
 
 composer.callbackQuery("admin:panel", async (ctx) => {
-  await ctx.answerCallbackQuery();
+  await answerCallback(ctx);
   ctx.session.step = "idle";
   ctx.session.pendingAction = undefined;
   ctx.session.pendingTarget = undefined;
   const data = await requireAdmin(ctx);
   if (!data) return;
-  await ctx.editMessageText(PANEL_TEXT, { reply_markup: modPanelKeyboard() });
+  await editOrReply(ctx, PANEL_TEXT, { reply_markup: modPanelKeyboard() });
 });
 
 // Each admin action button (admin:warn / admin:mute / ...) lives in its own
@@ -47,7 +50,7 @@ composer.callbackQuery("admin:panel", async (ctx) => {
 
 // Tap a member for a given action — start the reason/duration flow (or toggle trust).
 composer.callbackQuery(/^act:(warn|mute|kick|ban|trust):(-?\d+)$/, async (ctx) => {
-  await ctx.answerCallbackQuery();
+  await answerCallback(ctx);
   const data = await requireAdmin(ctx);
   if (!data) return;
   const action = ctx.match![1] as "warn" | "mute" | "kick" | "ban" | "trust";
@@ -59,7 +62,7 @@ composer.callbackQuery(/^act:(warn|mute|kick|ban|trust):(-?\d+)$/, async (ctx) =
     const reason = "manual trust toggle";
     const msg = await applyAction(ctx, data, ctx.chat!.id, ctx.from!.id, "trust", targetId, reason, null);
     await putChat(ctx.chat!.id, data);
-    await ctx.editMessageText(msg, { reply_markup: inlineKeyboard([[inlineButton("⬅️ Back to panel", "admin:panel")]]) });
+    await editOrReply(ctx, msg, { reply_markup: inlineKeyboard([[inlineButton("⬅️ Back to panel", "admin:panel")]]) });
     return;
   }
 
@@ -69,12 +72,12 @@ composer.callbackQuery(/^act:(warn|mute|kick|ban|trust):(-?\d+)$/, async (ctx) =
   await putChat(ctx.chat!.id, data);
 
   if (action === "mute") {
-    await ctx.editMessageText(
+    await editOrReply(ctx,
       `How long should I mute ${name}? Send a duration like 30m, 1h, or 2d (or /cancel).`,
       { reply_markup: inlineKeyboard([[inlineButton("⬅️ Cancel", "admin:panel")]]) },
     );
   } else {
-    await ctx.editMessageText(
+    await editOrReply(ctx,
       `Send a reason for this ${action} of ${name} (or /cancel).`,
       { reply_markup: inlineKeyboard([[inlineButton("⬅️ Cancel", "admin:panel")]]) },
     );

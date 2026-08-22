@@ -147,21 +147,6 @@ export function isAdmin(data: ChatData, userId: number): boolean {
   return data.adminIds.includes(userId);
 }
 
-/** First caller to run /mod in a chat becomes its admin (the owner who added the
- *  bot). Subsequent admins are synced from Telegram when reachable. */
-export async function ensureAdmin(chatId: number | string, userId: number): Promise<boolean> {
-  const data = await getChat(chatId);
-  if (data.adminIds.includes(userId)) return true;
-  if (data.adminIds.length === 0) {
-    data.adminIds.push(userId);
-    const m = data.members[userId];
-    if (m) m.admin = true;
-    await putChat(chatId, data);
-    return true;
-  }
-  return false;
-}
-
 /** Mark a member record (creating a minimal one if absent). */
 export function upsertMember(
   data: ChatData,

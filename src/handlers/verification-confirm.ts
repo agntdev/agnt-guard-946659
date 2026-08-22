@@ -12,6 +12,7 @@ import {
   VERIFICATION_WINDOW_LABEL,
 } from "../store.js";
 import { now } from "../clock.js";
+import { answerCallback } from "../telegram.js";
 
 // GroupGuard — new-member verification. When someone joins, the bot restricts
 // them, posts the group's welcome + rules with an "I'm human" button, and waits
@@ -97,7 +98,7 @@ composer.on("message:new_chat_members", async (ctx, next) => {
 });
 
 composer.callbackQuery("verification:confirm", async (ctx) => {
-  await ctx.answerCallbackQuery();
+  await answerCallback(ctx);
   const chatId = ctx.chat?.id;
   const userId = ctx.callbackQuery.from.id;
   if (!chatId) {

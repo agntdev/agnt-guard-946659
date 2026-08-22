@@ -1,6 +1,7 @@
 import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
 import { mainMenuKeyboard } from "../toolkit/index.js";
+import { answerCallback, editOrReply } from "../telegram.js";
 
 // The /start handler renders the bot's MAIN MENU — the primary way users operate
 // a button-first bot. A feature adds its own button by calling
@@ -17,8 +18,8 @@ composer.command("start", async (ctx) => {
 
 // "Back to menu" — re-render the main menu in place from any sub-view.
 composer.callbackQuery("menu:main", async (ctx) => {
-  await ctx.answerCallbackQuery();
-  await ctx.editMessageText(WELCOME, { reply_markup: mainMenuKeyboard() });
+  await answerCallback(ctx);
+  await editOrReply(ctx, WELCOME, { reply_markup: mainMenuKeyboard() });
 });
 
 export default composer;

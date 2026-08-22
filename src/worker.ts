@@ -14,12 +14,21 @@ import { webhookCallback, Composer, type Bot } from "grammy";
 import { buildBot, type Ctx } from "./bot.js";
 import { handlers } from "./handlers.generated.js";
 import { createDurableSessionStorage, type WorkerEnv } from "./toolkit/session/durable.js";
+import { setDefaultCommands } from "./toolkit/index.js";
 
 export { ChatDO } from "./toolkit/session/durable.js";
 
 // A grammY context under Workers additionally carries the runtime `env`, so a
 // handler can reach bindings + helpers (e.g. remindAt(ctx.env, …), ctx.env.DB).
 export type WorkerCtx = Ctx & { env: WorkerEnv };
+
+const COMMANDS = [
+  { command: "warn", description: "Warn a member" }, { command: "warnings", description: "Check a member's warnings" },
+  { command: "resetwarn", description: "Remove a member's warnings" }, { command: "mute", description: "Mute a member" },
+  { command: "unmute", description: "Unmute a member" }, { command: "kick", description: "Remove a member from the group" },
+  { command: "ban", description: "Ban a member" }, { command: "unban", description: "Unban a member" },
+  { command: "rules", description: "Show group rules" },
+] as const;
 
 // Build the bot ONCE per isolate. The token is stable for the isolate's
 // lifetime; grammY requires init() before handling updates. A FAILED build is
@@ -49,6 +58,7 @@ function getBot(env: WorkerEnv): Promise<Bot<Ctx>> {
         telemetryReporterOptions: { flushOnRecord: true, startTimer: false },
       });
       await bot.init();
+      await setDefaultCommands(bot, COMMANDS);
       return bot;
     })();
     botPromise.catch(() => {

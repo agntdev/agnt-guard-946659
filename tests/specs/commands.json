@@ -1,0 +1,16 @@
+[
+  {
+    "name": "Moderation commands guide admins when no member is selected",
+    "steps": [
+      { "send": { "text": "/warn" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Reply to a member's message, then send this command." } }] },
+      { "send": { "text": "/warnings" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Reply to a member's message, then send this command." } }] },
+      { "send": { "text": "/resetwarn" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Reply to a member's message, then send this command." } }] },
+      { "send": { "text": "/mute" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Reply to a member's message, then send this command." } }] },
+      { "send": { "text": "/unmute" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Reply to a member's message, then send this command." } }] },
+      { "send": { "text": "/kick" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Reply to a member's message, then send this command." } }] },
+      { "send": { "text": "/ban" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Reply to a member's message, then send this command." } }] },
+      { "send": { "text": "/unban" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Reply to a member's message, then send this command." } }] },
+      { "send": { "text": "/rules" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Group rules:\n1. Be respectful.\n2. No spam or unsolicited links.\n3. No harassment.\n4. Keep it on-topic." } }] }
+    ]
+  }
+]

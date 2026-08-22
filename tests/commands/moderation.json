@@ -1,0 +1,13 @@
+[
+  "/start",
+  "/help",
+  "/warn",
+  "/warnings",
+  "/resetwarn",
+  "/mute",
+  "/unmute",
+  "/kick",
+  "/ban",
+  "/unban",
+  "/rules"
+]
