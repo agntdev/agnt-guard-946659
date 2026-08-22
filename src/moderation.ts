@@ -16,6 +16,7 @@ import {
 import { now } from "./clock.js";
 import { inlineButton, inlineKeyboard, type InlineKeyboardMarkup } from "./toolkit/index.js";
 import { editOrReply } from "./telegram.js";
+import { isConfiguredOwner } from "./ownership.js";
 
 export function displayName(firstName: string, userId: number): string {
   return firstName && firstName.trim() !== "" ? firstName : `user ${userId}`;
@@ -116,6 +117,32 @@ export async function requireAdmin(ctx: Ctx, requiredBotRights: BotRight[] = ["c
     return null;
   }
   return data;
+}
+
+/**
+ * Internal moderator-list administration has intentionally different rules
+ * from Telegram moderation actions. The configured bot owner may curate the
+ * bot's stored moderator list even when they are not a Telegram administrator;
+ * a Telegram group administrator may do the same. No Bot API permission check
+ * is made here because this path never changes Telegram chat permissions.
+ */
+export async function requireModeratorManager(ctx: Ctx): Promise<ChatData | null> {
+  if (!ctx.chat || !ctx.from) return null;
+  const data = await getChat(ctx.chat.id);
+  if (isConfiguredOwner(ctx)) return data;
+
+  try {
+    const member = await ctx.api.getChatMember(ctx.chat.id, ctx.from.id);
+    if (isAdministrator(member)) {
+      if (!data.adminIds.includes(ctx.from.id)) data.adminIds.push(ctx.from.id);
+      await putChat(ctx.chat.id, data);
+      return data;
+    }
+  } catch {
+    // Fail closed when Telegram cannot establish group-admin status.
+  }
+  await ctx.reply("You must be the bot owner or a group administrator to manage moderators.");
+  return null;
 }
 
 export function botRightsForAction(action: Action): BotRight[] {

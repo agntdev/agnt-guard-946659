@@ -3,6 +3,7 @@ import type { Ctx } from "../bot.js";
 import { registerMainMenuItem, inlineButton, inlineKeyboard } from "../toolkit/index.js";
 import { getChat, putChat, logAction, VERIFICATION_WINDOW_LABEL, type ChatData } from "../store.js";
 import { answerCallback, editOrReply } from "../telegram.js";
+import { isConfiguredOwner } from "../ownership.js";
 
 // GroupGuard — configuration management. Admins edit the welcome text, rules,
 // the spam-escalation threshold, and the notification target for summary
@@ -26,40 +27,17 @@ function panelKeyboard() {
 const PANEL_TEXT =
   `Settings. New members get ${VERIFICATION_WINDOW_LABEL} to verify. Tap what you'd like to change.`;
 
-const OWNER_DENIED = "Only the bot owner can edit this bot.";
-
-function isTelegramOwner(member: { status: string }): boolean {
-  return member.status === "owner" || member.status === "creator";
-}
+const OWNER_DENIED = "Only the bot owner may edit bot settings.";
 
 /**
- * Settings are deliberately stricter than moderation: only the persisted
- * group owner may edit them. Existing groups are safely bootstrapped from a
- * Telegram owner/creator lookup, never from the first person who taps a menu.
+ * Settings are deliberately stricter than moderation: only the configured
+ * global bot owner may edit them. This is not inferred from group ownership or
+ * from the first person who taps a menu.
  */
 async function requireConfigurationOwner(ctx: Ctx): Promise<ChatData | null> {
   if (!ctx.chat || !ctx.from) return null;
   const data = await getChat(ctx.chat.id);
-  if (data.config.ownerId === ctx.from.id) return data;
-
-  if (data.config.ownerId === null) {
-    try {
-      const member = await ctx.api.getChatMember(ctx.chat.id, ctx.from.id);
-      if (isTelegramOwner(member)) {
-        data.config.ownerId = ctx.from.id;
-        logAction(data, ctx.chat.id, {
-          actor: ctx.from.id,
-          target: ctx.from.id,
-          action: "config",
-          reason: "configuration owner established",
-        });
-        await putChat(ctx.chat.id, data);
-        return data;
-      }
-    } catch {
-      // A failed lookup must fail closed: settings are never opened to admins.
-    }
-  }
+  if (isConfiguredOwner(ctx)) return data;
 
   logAction(data, ctx.chat.id, {
     actor: ctx.from.id,

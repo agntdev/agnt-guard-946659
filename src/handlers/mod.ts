@@ -5,6 +5,7 @@ import { getChat, putChat, setModerator } from "../store.js";
 import {
   modPanelKeyboard,
   requireAdmin,
+  requireModeratorManager,
   memberListKeyboard,
   showMemberList,
   applyAction,
@@ -30,7 +31,10 @@ const PANEL_TEXT =
 // Kept as a compatibility shortcut for existing groups. It is intentionally not
 // included in Telegram's published command list; the Moderation menu is primary.
 composer.command("mod", async (ctx) => {
-  const data = await requireAdmin(ctx);
+  // The global owner may open this panel to reach the internal moderator list
+  // even if they are not an administrator in this particular group. Individual
+  // Telegram moderation actions still perform their own requireAdmin checks.
+  const data = await requireModeratorManager(ctx);
   if (!data) return;
   await ctx.reply(PANEL_TEXT, { reply_markup: modPanelKeyboard() });
 });
@@ -40,13 +44,14 @@ composer.callbackQuery("admin:panel", async (ctx) => {
   ctx.session.step = "idle";
   ctx.session.pendingAction = undefined;
   ctx.session.pendingTarget = undefined;
-  const data = await requireAdmin(ctx);
+  const data = await requireModeratorManager(ctx);
   if (!data) return;
   await editOrReply(ctx, PANEL_TEXT, { reply_markup: modPanelKeyboard() });
 });
 
 function moderatorsKeyboard() {
   return inlineKeyboard([
+    [inlineButton("View moderators", "admin:moderators:list")],
     [inlineButton("Add moderator", "admin:moderators:add")],
     [inlineButton("Remove moderator", "admin:moderators:remove")],
     [inlineButton("⬅️ Back to panel", "admin:panel")],
@@ -64,7 +69,7 @@ function moderatorPicker(data: Awaited<ReturnType<typeof getChat>>, mode: "add" 
 
 composer.callbackQuery("admin:moderators", async (ctx) => {
   await answerCallback(ctx);
-  const data = await requireAdmin(ctx);
+  const data = await requireModeratorManager(ctx);
   if (!data) return;
   const count = data.moderatorIds.length;
   await editOrReply(ctx,
@@ -73,9 +78,20 @@ composer.callbackQuery("admin:moderators", async (ctx) => {
   );
 });
 
+composer.callbackQuery("admin:moderators:list", async (ctx) => {
+  await answerCallback(ctx);
+  const data = await requireModeratorManager(ctx);
+  if (!data) return;
+  const names = data.moderatorIds.map((id) => displayName(data.members[id]?.firstName ?? "", id));
+  await editOrReply(ctx,
+    names.length === 0 ? "No internal moderators yet — add a member when you're ready." : `Internal moderators:\n${names.map((name) => `• ${name}`).join("\n")}`,
+    { reply_markup: moderatorsKeyboard() },
+  );
+});
+
 composer.callbackQuery(/^admin:moderators:(add|remove)$/, async (ctx) => {
   await answerCallback(ctx);
-  const data = await requireAdmin(ctx);
+  const data = await requireModeratorManager(ctx);
   if (!data) return;
   const mode = ctx.match![1] as "add" | "remove";
   const available = mode === "add"
@@ -95,7 +111,7 @@ composer.callbackQuery(/^admin:moderators:(add|remove)$/, async (ctx) => {
 
 composer.callbackQuery(/^moderator:(add|remove):(-?\d+)$/, async (ctx) => {
   await answerCallback(ctx);
-  const data = await requireAdmin(ctx);
+  const data = await requireModeratorManager(ctx);
   if (!data || !ctx.chat) return;
   const mode = ctx.match![1] as "add" | "remove";
   const targetId = Number(ctx.match![2]);

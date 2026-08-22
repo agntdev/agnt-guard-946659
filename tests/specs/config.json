@@ -1,13 +1,13 @@
 [
   {
-    "name": "Only the stored bot owner can open settings",
+    "name": "Only the configured bot owner can open settings",
     "steps": [
       {
         "send": { "callback": "config:panel", "chatId": 400, "userId": 1 },
         "expect": [
           {
             "method": "sendMessage",
-            "payload": { "text": "Only the bot owner can edit this bot." }
+            "payload": { "text": "Only the bot owner may edit bot settings." }
           }
         ]
       }

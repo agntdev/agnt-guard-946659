@@ -1,6 +1,6 @@
 [
   {
-    "name": "A group administrator can open the moderation panel",
+    "name": "A group administrator can manage moderators",
     "steps": [
       {
         "send": {
@@ -26,7 +26,7 @@
     ]
   },
   {
-    "name": "A regular member cannot manage moderators",
+    "name": "A regular member is denied moderator management",
     "steps": [
       {
         "send": {
@@ -45,7 +45,7 @@
         "expect": [
           {
             "method": "sendMessage",
-            "payload": { "text": "You don't have permission to manage moderators." }
+            "payload": { "text": "You must be the bot owner or a group administrator to manage moderators." }
           }
         ]
       }
