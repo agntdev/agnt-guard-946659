@@ -12,5 +12,20 @@
         ]
       }
     ]
+  },
+  {
+    "name": "A legacy moderation-panel button acknowledges before rendering",
+    "steps": [
+      {
+        "send": { "callback": "admin:commands-panel", "chatId": 2, "userId": 1 },
+        "expect": [
+          { "method": "answerCallbackQuery" },
+          {
+            "method": "editMessageText",
+            "payload": { "text": "Moderation panel. Pick an action, then choose a member to apply it to." }
+          }
+        ]
+      }
+    ]
   }
 ]
