@@ -1,8 +1,8 @@
 import type { Ctx } from "./bot.js";
 
-function isBenignTelegramUiError(error: unknown): boolean {
+export function isBenignTelegramUiError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
-  return /message is not modified|query is too old|query ID is invalid|not enough rights to send text messages/i.test(message);
+  return /message is not modified|query is too old|query ID is invalid|not enough rights to send text messages|message can't be edited|message to edit not found/i.test(message);
 }
 
 /**

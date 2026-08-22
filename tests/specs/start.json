@@ -52,5 +52,20 @@
         "expect": [{ "method": "answerCallbackQuery" }]
       }
     ]
+  },
+  {
+    "name": "Returning to the menu acknowledges before rendering it",
+    "steps": [
+      {
+        "send": { "callback": "menu:main", "chatId": 3, "userId": 1 },
+        "expect": [
+          { "method": "answerCallbackQuery" },
+          {
+            "method": "editMessageText",
+            "payload": { "text": "👋 Welcome! Tap a button below to get started." }
+          }
+        ]
+      }
+    ]
   }
 ]
