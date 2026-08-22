@@ -37,6 +37,7 @@ export interface DOStub {
 }
 export interface WorkerEnv {
   BOT_TOKEN: string;
+  OWNER_TELEGRAM_ID?: string;
   WEBHOOK_SECRET?: string;
   CHAT_DO: DONamespace;
   DB?: unknown; // D1 binding (app data); see AGENTS.md

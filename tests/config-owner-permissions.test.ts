@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { buildBot } from "../src/bot";
 import { getChat, putChat } from "../src/store";
 import { callbackUpdate, textUpdate } from "../src/toolkit/harness/updates";
@@ -33,11 +33,18 @@ async function botWithCalls() {
 }
 
 describe("configuration ownership", () => {
-  it("lets the stored owner edit settings and records the change", async () => {
+  const originalOwner = process.env.OWNER_TELEGRAM_ID;
+
+  afterEach(() => {
+    if (originalOwner === undefined) delete process.env.OWNER_TELEGRAM_ID;
+    else process.env.OWNER_TELEGRAM_ID = originalOwner;
+  });
+
+  it("lets the configured global owner edit settings and records the change", async () => {
     const chatId = 1201;
     const data = await getChat(chatId);
-    data.config.ownerId = 10;
     await putChat(chatId, data);
+    process.env.OWNER_TELEGRAM_ID = "10";
     const { bot, calls } = await botWithCalls();
 
     await bot.handleUpdate(callbackUpdate(1, "config:edit:welcome", { chatId, userId: 10 }));
@@ -52,13 +59,13 @@ describe("configuration ownership", () => {
   it("denies non-owners and logs the denied configuration attempt", async () => {
     const chatId = 1202;
     const data = await getChat(chatId);
-    data.config.ownerId = 10;
     await putChat(chatId, data);
+    process.env.OWNER_TELEGRAM_ID = "10";
     const { bot, calls } = await botWithCalls();
 
     await bot.handleUpdate(callbackUpdate(1, "config:panel", { chatId, userId: 11 }));
 
-    expect(calls.find((call) => call.method === "sendMessage")?.payload.text).toBe("Only the bot owner can edit this bot.");
+    expect(calls.find((call) => call.method === "sendMessage")?.payload.text).toBe("Only the bot owner may edit bot settings.");
     const saved = await getChat(chatId);
     expect(saved.auditIds.map((id) => saved.audit[id]?.action)).toContain("config_denied");
   });
