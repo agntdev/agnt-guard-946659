@@ -10,7 +10,10 @@ import { answerCallback, editOrReply } from "../telegram.js";
 // file to add a feature. Send ONE message — no placeholder line above the menu.
 const composer = new Composer<Ctx>();
 
-const WELCOME = "👋 Welcome! Tap a button below to get started.";
+// Keep the private-chat entry point short and identify the bot immediately.
+// The same value is used for a retried menu callback, so editOrReply can
+// recognize an already-rendered menu and avoid Telegram's 400 "not modified".
+const WELCOME = "GroupGuard is ready. Choose an option below.";
 
 composer.command("start", async (ctx) => {
   await ctx.reply(WELCOME, { reply_markup: mainMenuKeyboard() });

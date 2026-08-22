@@ -7,7 +7,7 @@
         "expect": [
           {
             "method": "sendMessage",
-            "payload": { "text": "👋 Welcome! Tap a button below to get started." }
+            "payload": { "text": "GroupGuard is ready. Choose an option below." }
           }
         ]
       }
@@ -29,7 +29,7 @@
                 "date": 0,
                 "chat": { "id": 1, "type": "private", "first_name": "User" },
                 "from": { "id": 42, "is_bot": true, "first_name": "TestBot" },
-                "text": "👋 Welcome! Tap a button below to get started.",
+                "text": "GroupGuard is ready. Choose an option below.",
                 "reply_markup": {
                   "inline_keyboard": [
                     [
@@ -61,7 +61,7 @@
         "expect": [
           {
             "method": "sendMessage",
-            "payload": { "text": "👋 Welcome! Tap a button below to get started." }
+            "payload": { "text": "GroupGuard is ready. Choose an option below." }
           }
         ]
       }
@@ -76,7 +76,7 @@
           { "method": "answerCallbackQuery" },
           {
             "method": "editMessageText",
-            "payload": { "text": "👋 Welcome! Tap a button below to get started." }
+            "payload": { "text": "GroupGuard is ready. Choose an option below." }
           }
         ]
       }
