@@ -37,6 +37,7 @@ export interface DOStub {
 }
 export interface WorkerEnv {
   BOT_TOKEN: string;
+  BOT_OWNER_ID?: string;
   OWNER_TELEGRAM_ID?: string;
   WEBHOOK_SECRET?: string;
   CHAT_DO: DONamespace;

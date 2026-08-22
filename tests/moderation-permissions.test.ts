@@ -56,7 +56,11 @@ async function runMod(
       }
       return {
         ok: true,
-        result: { status: userStatus, user: { id: userId, is_bot: false, first_name: "Moderator" } },
+        result: {
+          status: userStatus,
+          user: { id: userId, is_bot: false, first_name: "Moderator" },
+          ...(userStatus === "administrator" ? { can_restrict_members: true } : {}),
+        },
       } as any;
     }
     return { ok: true, result: true } as any;
@@ -67,16 +71,19 @@ async function runMod(
 
 describe("moderator authorization", () => {
   const originalOwner = process.env.OWNER_TELEGRAM_ID;
+  const originalBotOwner = process.env.BOT_OWNER_ID;
 
   afterEach(() => {
     if (originalOwner === undefined) delete process.env.OWNER_TELEGRAM_ID;
     else process.env.OWNER_TELEGRAM_ID = originalOwner;
+    if (originalBotOwner === undefined) delete process.env.BOT_OWNER_ID;
+    else process.env.BOT_OWNER_ID = originalBotOwner;
   });
 
-  it("denies a regular member without exposing internal permission details", async () => {
+  it("denies a regular member with a useful explanation", async () => {
     const calls = await runMod(801, "member", { status: "administrator", can_manage_chat: true });
     expect(calls.find((call) => call.method === "sendMessage")?.payload.text)
-      .toBe("You must be the bot owner or a group administrator to manage moderators.");
+      .toBe("You must be the bot owner, a chat admin with Promote/Restrict rights, or a designated moderator to manage moderators. If you are an admin, ensure the bot is also an admin with Promote/Restrict rights.");
   });
 
   it("allows an administrator and a creator", async () => {
@@ -102,14 +109,14 @@ describe("moderator authorization", () => {
   it("rejects private-chat members while allowing a limited administrator to open the panel", async () => {
     const privateCalls = await runMod(805, "member", { status: "administrator", can_manage_chat: true }, "private");
     expect(privateCalls.find((call) => call.method === "sendMessage")?.payload.text)
-      .toBe("You must be the bot owner or a group administrator to manage moderators.");
+      .toBe("You must be the bot owner, a chat admin with Promote/Restrict rights, or a designated moderator to manage moderators. If you are an admin, ensure the bot is also an admin with Promote/Restrict rights.");
 
     const limitedCalls = await runMod(806, "administrator", { status: "administrator", can_manage_chat: true });
     expect(limitedCalls.find((call) => call.method === "sendMessage")?.payload.text)
       .toBe("Moderation panel. Pick an action, then choose a member to apply it to.");
   });
 
-  it("does not let a bot-designated moderator manage the moderator list", async () => {
+  it("lets a bot-designated moderator manage the moderator list", async () => {
     const chatId = 808;
     const data = await getChat(chatId);
     upsertMember(data, 9, "Moderator");
@@ -117,7 +124,7 @@ describe("moderator authorization", () => {
     await putChat(chatId, data);
     const calls = await runMod(chatId, "member", { status: "administrator", can_manage_chat: true });
     expect(calls.find((call) => call.method === "sendMessage")?.payload.text)
-      .toBe("You must be the bot owner or a group administrator to manage moderators.");
+      .toBe("Moderation panel. Pick an action, then choose a member to apply it to.");
   });
 
   it("lets the configured owner manage moderators without being a group administrator", async () => {
@@ -125,7 +132,7 @@ describe("moderator authorization", () => {
     const data = await getChat(chatId);
     upsertMember(data, 12, "New moderator");
     await putChat(chatId, data);
-    process.env.OWNER_TELEGRAM_ID = "9";
+    process.env.BOT_OWNER_ID = "9";
 
     const instance = await buildBot("123456:TEST");
     instance.botInfo = botInfo;
@@ -136,7 +143,7 @@ describe("moderator authorization", () => {
         return {
           ok: true,
           result: userId === botInfo.id
-            ? { status: "administrator", user: botInfo, can_manage_chat: true }
+            ? { status: "administrator", user: botInfo, can_manage_chat: true, can_restrict_members: true }
             : { status: "member", user: { id: userId, is_bot: false, first_name: "Member" } },
         } as any;
       }
@@ -166,8 +173,8 @@ describe("moderator authorization", () => {
       if (method === "getChatMember") {
         const userId = request.user_id as number;
         return { ok: true, result: userId === botInfo.id
-          ? { status: "administrator", user: botInfo, can_manage_chat: true }
-          : { status: "administrator", user: { id: userId, is_bot: false, first_name: "Admin" } } } as any;
+          ? { status: "administrator", user: botInfo, can_manage_chat: true, can_restrict_members: true }
+          : { status: "administrator", user: { id: userId, is_bot: false, first_name: "Admin" }, can_promote_members: true } } as any;
       }
       return { ok: true, result: true } as any;
     });
@@ -194,7 +201,53 @@ describe("moderator authorization", () => {
     });
     await instance.handleUpdate(callbackUpdate(1, "moderator:add:12", { chatId, userId: 11 }));
     expect(calls.find((call) => call.method === "sendMessage")?.payload.text)
-      .toBe("You must be the bot owner or a group administrator to manage moderators.");
+      .toBe("You must be the bot owner, a chat admin with Promote/Restrict rights, or a designated moderator to manage moderators. If you are an admin, ensure the bot is also an admin with Promote/Restrict rights.");
+    expect((await getChat(chatId)).moderatorIds).not.toContain(12);
+  });
+
+  it("denies an administrator without promote or restrict rights", async () => {
+    const chatId = 812;
+    const instance = await buildBot("123456:TEST");
+    instance.botInfo = botInfo;
+    const calls: Array<{ method: string; payload: Record<string, unknown> }> = [];
+    instance.api.config.use(async (_prev, method, payload) => {
+      const request = (payload ?? {}) as Record<string, unknown>;
+      calls.push({ method, payload: request });
+      if (method === "getChatMember") {
+        const userId = request.user_id as number;
+        return { ok: true, result: userId === botInfo.id
+          ? { status: "administrator", user: botInfo, can_restrict_members: true }
+          : { status: "administrator", user: { id: userId, is_bot: false, first_name: "Limited admin" } } } as any;
+      }
+      return { ok: true, result: true } as any;
+    });
+    await instance.handleUpdate(commandUpdate(chatId, 13));
+    expect(calls.find((call) => call.method === "sendMessage")?.payload.text)
+      .toBe("You must be the bot owner, a chat admin with Promote/Restrict rights, or a designated moderator to manage moderators. If you are an admin, ensure the bot is also an admin with Promote/Restrict rights.");
+  });
+
+  it("does not change moderators when the bot lacks promote and restrict rights", async () => {
+    const chatId = 813;
+    const data = await getChat(chatId);
+    upsertMember(data, 12, "New moderator");
+    await putChat(chatId, data);
+    const instance = await buildBot("123456:TEST");
+    instance.botInfo = botInfo;
+    const calls: Array<{ method: string; payload: Record<string, unknown> }> = [];
+    instance.api.config.use(async (_prev, method, payload) => {
+      const request = (payload ?? {}) as Record<string, unknown>;
+      calls.push({ method, payload: request });
+      if (method === "getChatMember") {
+        const userId = request.user_id as number;
+        return { ok: true, result: userId === botInfo.id
+          ? { status: "administrator", user: botInfo }
+          : { status: "administrator", user: { id: userId, is_bot: false, first_name: "Admin" }, can_promote_members: true } } as any;
+      }
+      return { ok: true, result: true } as any;
+    });
+    await instance.handleUpdate(callbackUpdate(1, "moderator:add:12", { chatId, userId: 10 }));
+    expect(calls.find((call) => call.method === "sendMessage")?.payload.text)
+      .toBe("Bot must be an admin with Promote/Restrict members permission to change moderators.");
     expect((await getChat(chatId)).moderatorIds).not.toContain(12);
   });
 });

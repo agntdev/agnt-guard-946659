@@ -129,20 +129,54 @@ export async function requireAdmin(ctx: Ctx, requiredBotRights: BotRight[] = ["c
 export async function requireModeratorManager(ctx: Ctx): Promise<ChatData | null> {
   if (!ctx.chat || !ctx.from) return null;
   const data = await getChat(ctx.chat.id);
-  if (isConfiguredOwner(ctx)) return data;
-
-  try {
-    const member = await ctx.api.getChatMember(ctx.chat.id, ctx.from.id);
-    if (isAdministrator(member)) {
-      if (!data.adminIds.includes(ctx.from.id)) data.adminIds.push(ctx.from.id);
-      await putChat(ctx.chat.id, data);
-      return data;
+  // A moderator is an explicit, durable delegation. Do not use the observed
+  // Telegram-admin cache here: that cache is only for spam exemptions and can
+  // be stale after an administrator is demoted.
+  let allowed = isConfiguredOwner(ctx) || data.moderatorIds.includes(ctx.from.id);
+  if (!allowed) {
+    try {
+      const member = await ctx.api.getChatMember(ctx.chat.id, ctx.from.id);
+      const privileges = member as unknown as Record<string, unknown>;
+      const status = member.status as string;
+      const isCreator = status === "creator" || status === "owner";
+      const canManageModerators = status === "administrator"
+        && (privileges.can_promote_members === true || privileges.can_restrict_members === true);
+      allowed = isCreator || canManageModerators;
+      if (allowed && isAdministrator(member) && !data.adminIds.includes(ctx.from.id)) {
+        data.adminIds.push(ctx.from.id);
+        await putChat(ctx.chat.id, data);
+      }
+    } catch {
+      // A stored designated moderator remains usable during a temporary
+      // Telegram lookup failure; everyone else fails closed.
     }
-  } catch {
-    // Fail closed when Telegram cannot establish group-admin status.
   }
-  await ctx.reply("You must be the bot owner or a group administrator to manage moderators.");
-  return null;
+  if (!allowed) {
+    await ctx.reply("You must be the bot owner, a chat admin with Promote/Restrict rights, or a designated moderator to manage moderators. If you are an admin, ensure the bot is also an admin with Promote/Restrict rights.");
+    return null;
+  }
+  return data;
+}
+
+/** Confirm that the bot itself can make a moderator-list change. This check is
+ * deliberately separate from opening/viewing the list so admins can diagnose
+ * a missing bot right without being locked out of the panel. */
+export async function requireModeratorChangeRights(ctx: Ctx): Promise<boolean> {
+  if (!ctx.chat) return false;
+  try {
+    const botMember = await ctx.api.getChatMember(ctx.chat.id, ctx.me.id);
+    const privileges = botMember as unknown as Record<string, unknown>;
+    const status = botMember.status as string;
+    const canChange = status === "creator" || status === "owner"
+      || (status === "administrator"
+        && (privileges.can_promote_members === true || privileges.can_restrict_members === true));
+    if (canChange) return true;
+  } catch {
+    // The same clear message applies when Telegram cannot confirm the bot's
+    // membership or rights.
+  }
+  await ctx.reply("Bot must be an admin with Promote/Restrict members permission to change moderators.");
+  return false;
 }
 
 export function botRightsForAction(action: Action): BotRight[] {
