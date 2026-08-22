@@ -27,5 +27,58 @@
         ]
       }
     ]
+  },
+  {
+    "name": "A retried moderation callback is acknowledged without running the action twice",
+    "strict": true,
+    "steps": [
+      {
+        "send": {
+          "update": {
+            "update_id": 922,
+            "callback_query": {
+              "id": "retry-922",
+              "from": { "id": 1, "is_bot": false, "first_name": "Admin" },
+              "message": {
+                "message_id": 922,
+                "date": 0,
+                "chat": { "id": 922, "type": "supergroup", "title": "Retries" },
+                "from": { "id": 42, "is_bot": true, "first_name": "TestBot" },
+                "text": "(previous)"
+              },
+              "chat_instance": "ci-922",
+              "data": "admin:commands-panel"
+            }
+          }
+        },
+        "expect": [
+          { "method": "answerCallbackQuery" },
+          { "method": "getChatMember" },
+          { "method": "getChatMember" },
+          { "method": "editMessageText", "payload": { "text": "Moderation panel. Pick an action, then choose a member to apply it to." } }
+        ]
+      },
+      {
+        "send": {
+          "update": {
+            "update_id": 922,
+            "callback_query": {
+              "id": "retry-922",
+              "from": { "id": 1, "is_bot": false, "first_name": "Admin" },
+              "message": {
+                "message_id": 922,
+                "date": 0,
+                "chat": { "id": 922, "type": "supergroup", "title": "Retries" },
+                "from": { "id": 42, "is_bot": true, "first_name": "TestBot" },
+                "text": "(previous)"
+              },
+              "chat_instance": "ci-922",
+              "data": "admin:commands-panel"
+            }
+          }
+        },
+        "expect": [{ "method": "answerCallbackQuery" }]
+      }
+    ]
   }
 ]

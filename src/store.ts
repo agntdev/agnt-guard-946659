@@ -71,6 +71,11 @@ export interface ChatData {
   infractions: Record<string, InfractionRecord>;
   auditIds: string[]; // newest first; capped at 200
   audit: Record<string, InfractionRecord>;
+  /** Recently claimed Telegram callback ids. Telegram can redeliver a callback
+   * when its acknowledgement or the accompanying message edit failed. Keeping
+   * this bounded, durable list makes state-changing button actions idempotent
+   * across those retries without any keyspace scan. */
+  callbackIds: string[];
 }
 
 /** Join verification window: new members must tap "I'm human" within this time. */
@@ -108,6 +113,7 @@ export function blankChat(): ChatData {
     infractions: {},
     auditIds: [],
     audit: {},
+    callbackIds: [],
   };
 }
 
@@ -140,6 +146,10 @@ function migrateWarningCounts(data: ChatData): boolean {
     data.config.botOwnerId = null;
     changed = true;
   }
+  if (!Array.isArray(data.callbackIds)) {
+    data.callbackIds = [];
+    changed = true;
+  }
   for (const id of data.memberIds) {
     const member = data.members[id];
     if (member && !Number.isInteger(member.warningCount)) {
@@ -165,6 +175,20 @@ export async function getChat(chatId: number | string): Promise<ChatData> {
 /** Persist a (possibly mutated) chat record. */
 export async function putChat(chatId: number | string, data: ChatData): Promise<void> {
   await adapter.write(KEY(chatId), data);
+}
+
+/**
+ * Claim a callback before its handler runs. Returns false for a previously
+ * processed callback, which is Telegram retry delivery rather than a new user
+ * action. The list follows the same 200-record privacy bound as the audit log.
+ */
+export async function claimCallback(chatId: number | string, callbackId: string): Promise<boolean> {
+  const data = await getChat(chatId);
+  if (data.callbackIds.includes(callbackId)) return false;
+  data.callbackIds.unshift(callbackId);
+  if (data.callbackIds.length > AUDIT_CAP) data.callbackIds.length = AUDIT_CAP;
+  await putChat(chatId, data);
+  return true;
 }
 
 function nextId(data: ChatData, chatId: number | string): string {
