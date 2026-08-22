@@ -2,9 +2,9 @@
   {
     "name": "Moderation commands guide admins when no member is selected",
     "steps": [
-      { "send": { "text": "/warn" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Reply to a member's message, then send this command." } }] },
-      { "send": { "text": "/warnings" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Reply to a member's message, then send this command." } }] },
-      { "send": { "text": "/resetwarn" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Reply to a member's message, then send this command." } }] },
+      { "send": { "text": "/warn" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Reply to a member's message, or use their known @username or numeric ID after the command." } }] },
+      { "send": { "text": "/warnings" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Reply to a member's message, or use their known @username or numeric ID after the command." } }] },
+      { "send": { "text": "/resetwarn" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Reply to a member's message, or use their known @username or numeric ID after the command." } }] },
       { "send": { "text": "/mute" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Reply to a member's message, then send this command." } }] },
       { "send": { "text": "/unmute" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Reply to a member's message, then send this command." } }] },
       { "send": { "text": "/kick" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Reply to a member's message, then send this command." } }] },

@@ -59,7 +59,7 @@ composer.on("message:new_chat_members", async (ctx, next) => {
   const data = await getChat(chatId);
   for (const user of ctx.message.new_chat_members ?? []) {
     if (user.is_bot) continue;
-    upsertMember(data, user.id, user.first_name ?? "", { joinTime: now() });
+    upsertMember(data, user.id, user.first_name ?? "", { joinTime: now(), username: user.username });
     const joinedAt = now();
     data.pending[user.id] = {
       timestamp: joinedAt,

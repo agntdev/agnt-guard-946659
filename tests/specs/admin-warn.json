@@ -48,7 +48,40 @@
         "expect": [
           {
             "method": "sendMessage",
-            "payload": { "text": "⚠️ Warned Newbie: stop spamming. They've been warned 1 time(s)." }
+            "payload": { "text": "⚠️ 乂𝗭𝗬𝗡Ø𝗫 WARNING\nUser: Newbie (id: 500)\nReason: stop spamming\nWarning: 1/3\nPlease follow the group rules. Further violations may result in a mute, kick, or ban." }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "/warn records a replied member with the exact warning notice",
+    "steps": [
+      {
+        "send": {
+          "update": {
+            "update_id": 20,
+            "message": {
+              "message_id": 20,
+              "date": 0,
+              "chat": { "id": 200, "type": "supergroup", "title": "Test" },
+              "from": { "id": 1, "is_bot": false, "first_name": "Admin" },
+              "text": "/warn repeated links",
+              "entities": [{ "type": "bot_command", "offset": 0, "length": 5 }],
+              "reply_to_message": {
+                "message_id": 19,
+                "date": 0,
+                "chat": { "id": 200, "type": "supergroup", "title": "Test" },
+                "from": { "id": 501, "is_bot": false, "first_name": "Taylor", "username": "taylor" },
+                "text": "https://example.test"
+              }
+            }
+          }
+        },
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": { "text": "⚠️ 乂𝗭𝗬𝗡Ø𝗫 WARNING\nUser: Taylor (@taylor)\nReason: repeated links\nWarning: 1/3\nPlease follow the group rules. Further violations may result in a mute, kick, or ban." }
           }
         ]
       }

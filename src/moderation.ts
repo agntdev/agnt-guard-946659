@@ -21,6 +21,15 @@ export function displayName(firstName: string, userId: number): string {
   return firstName && firstName.trim() !== "" ? firstName : `user ${userId}`;
 }
 
+export function warningTargetLabel(firstName: string, userId: number, username?: string): string {
+  const name = displayName(firstName, userId);
+  return username ? `${name} (@${username.replace(/^@/, "")})` : `${name} (id: ${userId})`;
+}
+
+export function warningNotice(firstName: string, userId: number, username: string | undefined, reason: string, count: number): string {
+  return `⚠️ 乂𝗭𝗬𝗡Ø𝗫 WARNING\nUser: ${warningTargetLabel(firstName, userId, username)}\nReason: ${reason || "No reason provided."}\nWarning: ${count}/3\nPlease follow the group rules. Further violations may result in a mute, kick, or ban.`;
+}
+
 /** /mod panel — every admin action as a button, plus stats and settings. */
 export function modPanelKeyboard(): InlineKeyboardMarkup {
   return inlineKeyboard([
@@ -100,9 +109,15 @@ export async function applyAction(
 
   switch (action) {
     case "warn": {
-      target.infractions += 1;
-      logAction(data, chatId, { actor: actorId, target: targetId, action: "warn", reason });
-      return `⚠️ Warned ${name}: ${reason}. They've been warned ${target.infractions} time(s).`;
+      target.warningCount = Math.min(3, (target.warningCount ?? 0) + 1);
+      logAction(data, chatId, {
+        actor: actorId,
+        target: targetId,
+        action: "warn",
+        reason: reason || "No reason provided.",
+        warningCount: target.warningCount,
+      });
+      return warningNotice(target.firstName, targetId, target.username, reason, target.warningCount);
     }
     case "mute": {
       const secs = durationSeconds ?? DEFAULT_MUTE_SECONDS;
