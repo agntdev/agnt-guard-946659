@@ -22,15 +22,6 @@ export { ChatDO } from "./toolkit/session/durable.js";
 // handler can reach bindings + helpers (e.g. remindAt(ctx.env, …), ctx.env.DB).
 export type WorkerCtx = Ctx & { env: WorkerEnv };
 
-const COMMANDS = [
-  { command: "warn", description: "Warn a member" }, { command: "warnings", description: "Check a member's warnings" },
-  { command: "resetwarn", description: "Remove a member's warnings" }, { command: "mute", description: "Mute a member" },
-  { command: "unmute", description: "Unmute a member" }, { command: "kick", description: "Remove a member from the group" },
-  { command: "ban", description: "Ban a member" }, { command: "unban", description: "Unban a member" },
-  { command: "rules", description: "Show group rules" },
-  { command: "set_owner", description: "Set internal bot owner" }, { command: "botinfo", description: "Show bot ownership" },
-] as const;
-
 // Build the bot ONCE per isolate. The token is stable for the isolate's
 // lifetime; grammY requires init() before handling updates. A FAILED build is
 // NOT cached: isolates live for many requests, so caching a rejected promise
@@ -59,7 +50,7 @@ function getBot(env: WorkerEnv): Promise<Bot<Ctx>> {
         telemetryReporterOptions: { flushOnRecord: true, startTimer: false },
       });
       await bot.init();
-      await setDefaultCommands(bot, COMMANDS);
+      await setDefaultCommands(bot);
       return bot;
     })();
     botPromise.catch(() => {
@@ -74,7 +65,17 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === "/health") {
-      return Response.json({ ok: true, runtime: "cloudflare-workers" });
+      // A process that has not authenticated with Telegram is not ready to
+      // receive webhooks. This checks the token, Telegram connectivity and
+      // handler/session assembly instead of returning a misleading liveness
+      // response while every update fails.
+      try {
+        await getBot(env);
+        return Response.json({ ok: true, runtime: "cloudflare-workers" });
+      } catch (error) {
+        console.error("GroupGuard health check failed", error);
+        return Response.json({ ok: false, runtime: "cloudflare-workers" }, { status: 503 });
+      }
     }
 
     if (request.method === "POST" && url.pathname === "/tg") {
