@@ -3,6 +3,7 @@ import type { Ctx } from "../bot.js";
 import { getChat, putChat, logAction, upsertMember, type ChatData } from "../store.js";
 import { applyAction, botRightsForAction, formatDuration, parseDuration, requireAdmin } from "../moderation.js";
 import { modPanelKeyboard } from "../moderation.js";
+import { answerCallback, editOrReply } from "../telegram.js";
 
 const composer = new Composer<Ctx>();
 const PANEL_TEXT = "Moderation panel. Pick an action, then choose a member to apply it to.";
@@ -198,9 +199,13 @@ composer.command("rules", async (ctx) => {
 // A panel shortcut remains available through the main menu; it is deliberately
 // not published as a Telegram slash command.
 composer.callbackQuery("admin:commands-panel", async (ctx) => {
+  // This legacy callback can still arrive from an older inline keyboard. Ack it
+  // immediately, then use the shared idempotent renderer so a Telegram retry
+  // cannot fail on an unchanged panel or leave the client spinner running.
+  await answerCallback(ctx);
   const data = await requireAdmin(ctx);
   if (!data) return;
-  await ctx.reply(PANEL_TEXT, { reply_markup: modPanelKeyboard() });
+  await editOrReply(ctx, PANEL_TEXT, { reply_markup: modPanelKeyboard() });
 });
 
 export default composer;
