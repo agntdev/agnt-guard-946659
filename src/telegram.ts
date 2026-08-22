@@ -14,7 +14,7 @@ export function isBenignTelegramUiError(error: unknown): boolean {
   // bot, so persisting the moderation decision must still complete. Treat the
   // equivalent delivery failures the same way, while leaving all other API
   // failures visible to the error boundary.
-  return /message is not modified|query is too old|query ID is invalid|not enough rights to send(?: text)? messages|have no rights to send a message|bot was blocked by the user|user is deactivated|chat not found|message can't be edited|message to edit not found/i.test(message);
+  return /message is not modified|query is too old|query ID is invalid|not enough rights to send(?: text)? messages|have no rights to send (?:a )?message|bot was blocked by the user|user is deactivated|chat not found|message can't be edited|message to edit not found/i.test(message);
 }
 
 /**

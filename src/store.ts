@@ -118,13 +118,30 @@ export function blankChat(): ChatData {
 }
 
 const KEY = (chatId: number | string) => `gg:chat:${chatId}`;
+const CHAT_INDEX_KEY = "gg:chat-index";
+
+interface ChatIndex {
+  chatIds: string[];
+}
 
 // One adapter for the whole bot (auto-selects Redis when REDIS_URL is set, else
 // in-memory — the toolkit's persistent storage, not a hand-rolled Map). Each
 // chat is its own record addressed directly by chat id — no keyspace scans, and
 // each record carries explicit index arrays (memberIds, infractionIds, auditIds)
 // so collections are read through those indices.
-const adapter: StorageAdapter<ChatData> = resolveSessionStorage<ChatData>(undefined);
+const adapter: StorageAdapter<ChatData | ChatIndex> = resolveSessionStorage<ChatData | ChatIndex>(undefined);
+
+/** Keep a direct, bounded list of chat records. This is an explicit index, not
+ * a keyspace scan, and lets an authorized privacy reset reach every record the
+ * bot has created. */
+async function trackChat(chatId: number | string): Promise<void> {
+  const id = String(chatId);
+  const existing = await Promise.resolve(adapter.read(CHAT_INDEX_KEY)) as ChatIndex | undefined;
+  const index = existing && Array.isArray(existing.chatIds) ? existing : { chatIds: [] };
+  if (index.chatIds.includes(id)) return;
+  index.chatIds.push(id);
+  await adapter.write(CHAT_INDEX_KEY, index);
+}
 
 /**
  * Records created before dedicated warning counts used `infractions` for the
@@ -162,7 +179,8 @@ function migrateWarningCounts(data: ChatData): boolean {
 
 /** Read a chat's record (creating + persisting a blank one if absent). */
 export async function getChat(chatId: number | string): Promise<ChatData> {
-  const v = await Promise.resolve(adapter.read(KEY(chatId)));
+  await trackChat(chatId);
+  const v = await Promise.resolve(adapter.read(KEY(chatId))) as ChatData | undefined;
   if (!v) {
     const fresh = blankChat();
     await adapter.write(KEY(chatId), fresh);
@@ -175,6 +193,39 @@ export async function getChat(chatId: number | string): Promise<ChatData> {
 /** Persist a (possibly mutated) chat record. */
 export async function putChat(chatId: number | string, data: ChatData): Promise<void> {
   await adapter.write(KEY(chatId), data);
+}
+
+/**
+ * Remove every item of user-generated moderation activity while retaining the
+ * group's operating configuration. Records are single per-chat documents, so
+ * overwriting these fields also removes the stored verification responses,
+ * member metadata, counters, action records, logs, and callback cache.
+ *
+ * This deliberately walks only the explicit chat index. It never scans the
+ * backing store, which would be unsafe on a production Redis deployment.
+ */
+export async function purgeActivityAcrossChats(): Promise<number> {
+  const existing = await Promise.resolve(adapter.read(CHAT_INDEX_KEY)) as ChatIndex | undefined;
+  const chatIds = existing?.chatIds ?? [];
+  let cleared = 0;
+  for (const chatId of chatIds) {
+    const stored = await Promise.resolve(adapter.read(KEY(chatId))) as ChatData | undefined;
+    if (!stored) continue;
+    stored.seq = 0;
+    stored.memberIds = [];
+    stored.members = {};
+    stored.trustedIds = [];
+    stored.pending = {};
+    stored.infractionIds = [];
+    stored.infractions = {};
+    stored.auditIds = [];
+    stored.audit = {};
+    stored.callbackIds = [];
+    // moderatorIds/adminIds and config are operating settings, not activity.
+    await adapter.write(KEY(chatId), stored);
+    cleared += 1;
+  }
+  return cleared;
 }
 
 /**

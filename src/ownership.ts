@@ -31,6 +31,13 @@ export function isOperator(ctx: Ctx): boolean {
   return ctx.from?.id === operatorId(ctx);
 }
 
+/** The deployment owner controls bot-wide privacy operations. Per-group bot
+ * ownership is intentionally insufficient for an action that affects every
+ * group using this bot. */
+export function isDeploymentOwner(ctx: Ctx): boolean {
+  return ctx.from?.id === deploymentOwnerId(ctx);
+}
+
 /**
  * Resolve the durable owner and seed it once from BOT_OWNER_ID. The deployment
  * binding is never allowed to overwrite a deliberate in-bot ownership transfer.
