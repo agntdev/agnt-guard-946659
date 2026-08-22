@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildBot } from "../src/bot.js";
 import { callbackUpdate } from "../src/toolkit/harness/updates.js";
+import { getChat } from "../src/store.js";
 
 const botInfo = {
   id: 42,
@@ -71,5 +72,26 @@ describe("Telegram UI resilience", () => {
     });
 
     await expect(bot.handleUpdate(callbackUpdate(2, "verification:confirm", { chatId: 78, userId: 1 }))).resolves.toBeUndefined();
+  });
+
+  it("does not run a redelivered callback twice", async () => {
+    const bot = await buildBot("123456:TEST");
+    bot.botInfo = botInfo;
+    bot.api.config.use(async (_prev, method, payload) => {
+      if (method === "getChatMember") {
+        const request = payload as { user_id: number };
+        return { ok: true, result: request.user_id === botInfo.id
+          ? { status: "administrator", user: botInfo, can_manage_chat: true }
+          : { status: "administrator", user: { id: request.user_id, is_bot: false, first_name: "Admin" }, can_restrict_members: true } } as any;
+      }
+      return { ok: true, result: true } as any;
+    });
+
+    const update = callbackUpdate(55, "admin:commands-panel", { chatId: 79, userId: 1 });
+    await bot.handleUpdate(update);
+    await bot.handleUpdate(update);
+
+    const data = await getChat(79);
+    expect(data.callbackIds).toEqual(["55"]);
   });
 });

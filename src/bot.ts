@@ -2,6 +2,8 @@ import { Composer } from "grammy";
 import { createBot, type BotContext, type CreateBotOptions } from "./toolkit/index.js";
 import type { StorageAdapter } from "grammy";
 import { softenTelegramUiErrors } from "./telegram.js";
+import { answerCallback } from "./telegram.js";
+import { claimCallback } from "./store.js";
 
 // The per-chat session shape (ephemeral conversation state only). Extend as the
 // bot grows. Durable domain data must NOT live here — use the toolkit's
@@ -62,6 +64,17 @@ export async function buildBot(token: string, opts: BuildBotOptions = {}) {
   // an unhandled middleware error.
   bot.use(async (ctx, next) => {
     softenTelegramUiErrors(ctx);
+    // Telegram retries callback updates when a client acknowledgement or a UI
+    // edit fails. A repeated tap has the same callback query id, so claim it
+    // durably before handlers mutate membership, configuration, or audit data.
+    // Still acknowledge the duplicate so Telegram stops retrying it.
+    if (ctx.callbackQuery && ctx.chat) {
+      const claimed = await claimCallback(ctx.chat.id, ctx.callbackQuery.id);
+      if (!claimed) {
+        await answerCallback(ctx);
+        return;
+      }
+    }
     await next();
   });
 
