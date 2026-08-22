@@ -15,6 +15,33 @@ const botInfo = {
 } as const;
 
 describe("Telegram UI resilience", () => {
+  it("keeps /start responsive when Telegram denies the bot send permission", async () => {
+    const bot = await buildBot("123456:TEST");
+    bot.botInfo = botInfo;
+    bot.api.config.use(async (_prev, method) => {
+      if (method === "sendMessage") {
+        return {
+          ok: false,
+          error_code: 400,
+          description: "Bad Request: not enough rights to send messages to the chat",
+        } as any;
+      }
+      return { ok: true, result: true } as any;
+    });
+
+    await expect(bot.handleUpdate({
+      update_id: 1,
+      message: {
+        message_id: 1,
+        date: 0,
+        chat: { id: 76, type: "private", first_name: "User" },
+        from: { id: 1, is_bot: false, first_name: "User" },
+        text: "/start",
+        entities: [{ type: "bot_command", offset: 0, length: 6 }],
+      },
+    } as any)).resolves.toBeUndefined();
+  });
+
   it("keeps an unchanged-menu callback from aborting the update", async () => {
     const bot = await buildBot("123456:TEST");
     bot.botInfo = botInfo;

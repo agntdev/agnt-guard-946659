@@ -54,6 +54,20 @@
     ]
   },
   {
+    "name": "A fresh /start always sends the main menu",
+    "steps": [
+      {
+        "send": { "text": "/start", "chatId": 77, "userId": 77 },
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": { "text": "👋 Welcome! Tap a button below to get started." }
+          }
+        ]
+      }
+    ]
+  },
+  {
     "name": "Returning to the menu acknowledges before rendering it",
     "steps": [
       {
