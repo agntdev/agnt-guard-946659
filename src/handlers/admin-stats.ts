@@ -16,6 +16,7 @@ const composer = new Composer<Ctx>();
 function summarize(data: ChatData): string {
   const counts: Record<Action, number> = {
     warn: 0, mute: 0, kick: 0, ban: 0, trust: 0, verify: 0, join: 0, spam: 0,
+    config: 0, config_denied: 0,
   };
   for (const id of data.auditIds) {
     const rec = data.audit[id];
@@ -30,6 +31,8 @@ function summarize(data: ChatData): string {
     `Kicks: ${counts.kick}\n` +
     `Bans: ${counts.ban}\n` +
     `Trusted: ${counts.trust}\n\n` +
+    `Settings changes: ${counts.config}\n` +
+    `Blocked settings attempts: ${counts.config_denied}\n\n` +
     (data.auditIds.length === 0
       ? "No moderation activity yet — actions will appear here."
       : `Recent: ${data.auditIds.slice(0, 5).length} action(s) recorded.`)
@@ -60,7 +63,7 @@ composer.callbackQuery("admin:stats:send", async (ctx) => {
   const text = summarize(data);
   try {
     await ctx.api.sendMessage(target, text);
-    await ctx.reply(`Sent the summary to chat ${target}.`);
+    await ctx.reply("Sent the summary to the configured chat.");
   } catch {
     await ctx.reply("Couldn't deliver the summary. Check the notification target and try again.");
   }

@@ -9,7 +9,17 @@ import type { StorageAdapter } from "grammy";
 import { resolveSessionStorage } from "./toolkit/session/redis.js";
 import { now } from "./clock.js";
 
-export type Action = "warn" | "mute" | "kick" | "ban" | "trust" | "verify" | "join" | "spam";
+export type Action =
+  | "warn"
+  | "mute"
+  | "kick"
+  | "ban"
+  | "trust"
+  | "verify"
+  | "join"
+  | "spam"
+  | "config"
+  | "config_denied";
 
 export interface MemberRecord {
   userId: number;
@@ -35,6 +45,8 @@ export interface InfractionRecord {
 }
 
 export interface ChatConfig {
+  /** The one Telegram group owner allowed to change this group's bot settings. */
+  ownerId: number | null;
   welcomeText: string;
   rules: string;
   spamThreshold: number; // spam hits before escalation beyond a plain warn
@@ -72,6 +84,7 @@ const DEFAULT_RULES =
 
 export function defaultConfig(): ChatConfig {
   return {
+    ownerId: null,
     welcomeText: "Welcome to the group! Tap the button below to verify you're human.",
     rules: DEFAULT_RULES,
     spamThreshold: 2,
@@ -113,6 +126,10 @@ const adapter: StorageAdapter<ChatData> = resolveSessionStorage<ChatData>(undefi
  */
 function migrateWarningCounts(data: ChatData): boolean {
   let changed = false;
+  if (data.config.ownerId === undefined || !Number.isInteger(data.config.ownerId)) {
+    data.config.ownerId = null;
+    changed = true;
+  }
   // Older records predate explicit internal moderators. Keep their Telegram
   // admin cache intact, but do not reinterpret it as a manually delegated role.
   if (!Array.isArray(data.moderatorIds)) {
