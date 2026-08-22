@@ -47,6 +47,10 @@ export interface ChatData {
   config: ChatConfig;
   memberIds: number[];
   members: Record<number, MemberRecord>;
+  /** Explicit bot-managed moderators. Telegram administrators are discovered
+   * separately and must never overwrite this opt-in role list. */
+  moderatorIds: number[];
+  /** Observed Telegram administrators, used for spam exemptions and display. */
   adminIds: number[];
   trustedIds: number[];
   pending: Record<number, { timestamp: number; expiry: number; status: "pending" | "verified" | "expired" }>;
@@ -82,6 +86,7 @@ export function blankChat(): ChatData {
     config: defaultConfig(),
     memberIds: [],
     members: {},
+    moderatorIds: [],
     adminIds: [],
     trustedIds: [],
     pending: {},
@@ -108,6 +113,12 @@ const adapter: StorageAdapter<ChatData> = resolveSessionStorage<ChatData>(undefi
  */
 function migrateWarningCounts(data: ChatData): boolean {
   let changed = false;
+  // Older records predate explicit internal moderators. Keep their Telegram
+  // admin cache intact, but do not reinterpret it as a manually delegated role.
+  if (!Array.isArray(data.moderatorIds)) {
+    data.moderatorIds = [];
+    changed = true;
+  }
   for (const id of data.memberIds) {
     const member = data.members[id];
     if (member && !Number.isInteger(member.warningCount)) {
@@ -168,7 +179,14 @@ export function logAction(
 }
 
 export function isAdmin(data: ChatData, userId: number): boolean {
-  return data.adminIds.includes(userId);
+  return data.adminIds.includes(userId) || data.moderatorIds.includes(userId) || data.members[userId]?.admin === true;
+}
+
+/** Grant or revoke the bot's explicit moderator role for this group. */
+export function setModerator(data: ChatData, userId: number, moderator: boolean): void {
+  upsertMember(data, userId, "", { admin: moderator });
+  data.moderatorIds = data.moderatorIds.filter((id) => id !== userId);
+  if (moderator) data.moderatorIds.push(userId);
 }
 
 /** Mark a member record (creating a minimal one if absent). */
