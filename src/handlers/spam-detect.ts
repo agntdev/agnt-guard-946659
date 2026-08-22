@@ -1,6 +1,6 @@
 import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
-import { getChat, putChat, upsertMember, logAction } from "../store.js";
+import { getChat, putChat, upsertMember, logAction, type ChatData } from "../store.js";
 import { now } from "../clock.js";
 import { DEFAULT_MUTE_SECONDS } from "../store.js";
 import { sweepExpiredVerifications } from "./verification-timeout.js";
@@ -77,6 +77,39 @@ function isCommand(ctx: Ctx): boolean {
   return ents.some((e) => e.type === "bot_command");
 }
 
+function isAdministrator(member: { status: string }): boolean {
+  return member.status === "creator" || member.status === "owner" || member.status === "administrator";
+}
+
+/**
+ * A stored admin list is only a cache. In particular, a newly promoted admin
+ * might post a message before using GroupGuard's panel, so checking only that
+ * cache could incorrectly mute or remove them. We ask Telegram only after a
+ * message has actually matched a spam rule; clean group conversation does not
+ * create an API call per message. If Telegram is temporarily unavailable, the
+ * durable cache remains the safe fallback.
+ */
+async function isSpamExempt(
+  ctx: Ctx,
+  chatId: number,
+  data: ChatData,
+  senderId: number,
+  trusted: boolean,
+): Promise<boolean> {
+  if (trusted) return true;
+  if (data.adminIds.includes(senderId) || data.members[senderId]?.admin === true) return true;
+  try {
+    const membership = await ctx.api.getChatMember(chatId, senderId);
+    if (!isAdministrator(membership)) return false;
+    if (!data.adminIds.includes(senderId)) data.adminIds.push(senderId);
+    const member = data.members[senderId];
+    if (member) member.admin = true;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 composer.on("message:text").filter(
   (ctx): boolean => isGroup(ctx) && !isCommand(ctx),
   async (ctx) => {
@@ -96,6 +129,13 @@ composer.on("message:text").filter(
     if (!verdict.spam) {
       await putChat(chatId, data);
       return; // clean message — silent
+    }
+
+    // Never moderate a Telegram administrator, even if they were promoted
+    // after GroupGuard last cached the group membership.
+    if (await isSpamExempt(ctx, chatId, data, sender.id, member.trusted)) {
+      await putChat(chatId, data);
+      return;
     }
 
     member.infractions += 1;
