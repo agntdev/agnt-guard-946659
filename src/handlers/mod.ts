@@ -6,6 +6,7 @@ import {
   modPanelKeyboard,
   requireAdmin,
   requireModeratorManager,
+  requireModeratorChangeRights,
   memberListKeyboard,
   showMemberList,
   applyAction,
@@ -113,6 +114,7 @@ composer.callbackQuery(/^moderator:(add|remove):(-?\d+)$/, async (ctx) => {
   await answerCallback(ctx);
   const data = await requireModeratorManager(ctx);
   if (!data || !ctx.chat) return;
+  if (!await requireModeratorChangeRights(ctx)) return;
   const mode = ctx.match![1] as "add" | "remove";
   const targetId = Number(ctx.match![2]);
   if (!data.members[targetId] || (mode === "add" && data.moderatorIds.includes(targetId)) || (mode === "remove" && !data.moderatorIds.includes(targetId))) {
