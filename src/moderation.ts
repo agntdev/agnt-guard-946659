@@ -16,7 +16,7 @@ import {
 import { now } from "./clock.js";
 import { inlineButton, inlineKeyboard, type InlineKeyboardMarkup } from "./toolkit/index.js";
 import { editOrReply } from "./telegram.js";
-import { isConfiguredOwner } from "./ownership.js";
+import { isBotOwner } from "./ownership.js";
 
 export function displayName(firstName: string, userId: number): string {
   return firstName && firstName.trim() !== "" ? firstName : `user ${userId}`;
@@ -90,7 +90,7 @@ function rightsMessage(rights: BotRight[]): string {
 export async function requireAdmin(ctx: Ctx, requiredBotRights: BotRight[] = ["can_manage_chat"]): Promise<ChatData | null> {
   if (!ctx.chat || !ctx.from) return null;
   const data = await getChat(ctx.chat.id);
-  const internallyDelegated = isAdmin(data, ctx.from.id);
+  const internallyDelegated = isAdmin(data, ctx.from.id) || await isBotOwner(ctx, data);
   let telegramAdministrator = false;
   try {
     const member = await ctx.api.getChatMember(ctx.chat.id, ctx.from.id);
@@ -132,7 +132,7 @@ export async function requireModeratorManager(ctx: Ctx): Promise<ChatData | null
   // A moderator is an explicit, durable delegation. Do not use the observed
   // Telegram-admin cache here: that cache is only for spam exemptions and can
   // be stale after an administrator is demoted.
-  let allowed = isConfiguredOwner(ctx) || data.moderatorIds.includes(ctx.from.id);
+  let allowed = await isBotOwner(ctx, data) || data.moderatorIds.includes(ctx.from.id);
   if (!allowed) {
     try {
       const member = await ctx.api.getChatMember(ctx.chat.id, ctx.from.id);
@@ -163,6 +163,11 @@ export async function requireModeratorManager(ctx: Ctx): Promise<ChatData | null
  * a missing bot right without being locked out of the panel. */
 export async function requireModeratorChangeRights(ctx: Ctx): Promise<boolean> {
   if (!ctx.chat) return false;
+  // The internal moderator list is GroupGuard data, not a Telegram admin-role
+  // change. A configured bot owner may always maintain it, including when the
+  // bot's Telegram rights were temporarily reduced.
+  const data = await getChat(ctx.chat.id);
+  if (await isBotOwner(ctx, data)) return true;
   try {
     const botMember = await ctx.api.getChatMember(ctx.chat.id, ctx.me.id);
     const privileges = botMember as unknown as Record<string, unknown>;

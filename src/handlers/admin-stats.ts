@@ -4,6 +4,7 @@ import { registerMainMenuItem, inlineButton, inlineKeyboard } from "../toolkit/i
 import { requireAdmin, displayName } from "../moderation.js";
 import { getChat, type ChatData, type Action } from "../store.js";
 import { answerCallback, editOrReply } from "../telegram.js";
+import { isBotOwner } from "../ownership.js";
 
 // GroupGuard — "View Stats". Aggregates the chat's audit log (capped at 200) into
 // a concise summary admins can read at a glance, with an option to push the same
@@ -16,7 +17,7 @@ const composer = new Composer<Ctx>();
 function summarize(data: ChatData): string {
   const counts: Record<Action, number> = {
     warn: 0, mute: 0, kick: 0, ban: 0, trust: 0, verify: 0, join: 0, spam: 0,
-    config: 0, config_denied: 0,
+    config: 0, config_denied: 0, owner_change: 0,
   };
   for (const id of data.auditIds) {
     const rec = data.audit[id];
@@ -39,21 +40,52 @@ function summarize(data: ChatData): string {
   );
 }
 
-const statsKeyboard = inlineKeyboard([
-  [inlineButton("📤 Send to target", "admin:stats:send")],
-  [inlineButton("⬅️ Back to panel", "admin:panel")],
-]);
+function statsKeyboard(canExport: boolean) {
+  return inlineKeyboard([
+    [inlineButton("📤 Send to target", "admin:stats:send")],
+    ...(canExport ? [[inlineButton("Export audit log", "admin:stats:export")]] : []),
+    [inlineButton("⬅️ Back to panel", "admin:panel")],
+  ]);
+}
+
+function auditExport(data: ChatData): string {
+  if (data.auditIds.length === 0) return "No moderation activity has been recorded yet.";
+  return data.auditIds.map((id) => {
+    const entry = data.audit[id];
+    if (!entry) return "";
+    const target = displayName(data.members[entry.target]?.firstName ?? "", entry.target);
+    return `${entry.action}: ${target} — ${entry.reason}`;
+  }).filter(Boolean).join("\n");
+}
+
+async function sendInChunks(ctx: Ctx, text: string): Promise<void> {
+  // Telegram accepts up to 4096 characters per message. Keep words intact so a
+  // retained 200-entry audit log remains deliverable instead of failing midway.
+  let remaining = text;
+  while (remaining.length > 0) {
+    if (remaining.length <= 4000) {
+      await ctx.reply(remaining);
+      return;
+    }
+    const split = remaining.lastIndexOf("\n", 4000);
+    const end = split > 0 ? split : 4000;
+    await ctx.reply(remaining.slice(0, end));
+    remaining = remaining.slice(end).replace(/^\n/, "");
+  }
+}
 
 composer.callbackQuery("admin:stats", async (ctx) => {
   await answerCallback(ctx);
-  const data = await requireAdmin(ctx);
+  // Viewing locally stored analytics does not require the bot to have a
+  // Telegram moderation right; the caller is still authorized by requireAdmin.
+  const data = await requireAdmin(ctx, []);
   if (!data) return;
-  await editOrReply(ctx, summarize(data), { reply_markup: statsKeyboard });
+  await editOrReply(ctx, summarize(data), { reply_markup: statsKeyboard(await isBotOwner(ctx, data)) });
 });
 
 composer.callbackQuery("admin:stats:send", async (ctx) => {
   await answerCallback(ctx);
-  const data = await requireAdmin(ctx);
+  const data = await requireAdmin(ctx, []);
   if (!data) return;
   const target = data.config.notifyTarget;
   if (!target) {
@@ -67,6 +99,17 @@ composer.callbackQuery("admin:stats:send", async (ctx) => {
   } catch {
     await ctx.reply("Couldn't deliver the summary. Check the notification target and try again.");
   }
+});
+
+composer.callbackQuery("admin:stats:export", async (ctx) => {
+  await answerCallback(ctx);
+  if (!ctx.chat || !ctx.from) return;
+  const data = await getChat(ctx.chat.id);
+  if (!await isBotOwner(ctx, data)) {
+    await ctx.reply("Only the bot owner can export the full audit log.");
+    return;
+  }
+  await sendInChunks(ctx, auditExport(data));
 });
 
 export default composer;

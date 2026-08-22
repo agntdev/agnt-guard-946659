@@ -28,6 +28,7 @@ const COMMANDS = [
   { command: "unmute", description: "Unmute a member" }, { command: "kick", description: "Remove a member from the group" },
   { command: "ban", description: "Ban a member" }, { command: "unban", description: "Unban a member" },
   { command: "rules", description: "Show group rules" },
+  { command: "set_owner", description: "Set internal bot owner" }, { command: "botinfo", description: "Show bot ownership" },
 ] as const;
 
 // Build the bot ONCE per isolate. The token is stable for the isolate's

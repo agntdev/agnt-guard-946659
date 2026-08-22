@@ -19,7 +19,8 @@ export type Action =
   | "join"
   | "spam"
   | "config"
-  | "config_denied";
+  | "config_denied"
+  | "owner_change";
 
 export interface MemberRecord {
   userId: number;
@@ -50,6 +51,8 @@ export interface ChatConfig {
   spamThreshold: number; // spam hits before escalation beyond a plain warn
   enabledActions: { warn: boolean; mute: boolean; kick: boolean; ban: boolean };
   notifyTarget: number | null; // chat id to receive summary reports
+  /** Internal GroupGuard owner for this group. This is not Telegram token ownership. */
+  botOwnerId: number | null;
 }
 
 export interface ChatData {
@@ -87,6 +90,7 @@ export function defaultConfig(): ChatConfig {
     spamThreshold: 2,
     enabledActions: { warn: true, mute: true, kick: true, ban: true },
     notifyTarget: null,
+    botOwnerId: null,
   };
 }
 
@@ -127,6 +131,13 @@ function migrateWarningCounts(data: ChatData): boolean {
   // admin cache intact, but do not reinterpret it as a manually delegated role.
   if (!Array.isArray(data.moderatorIds)) {
     data.moderatorIds = [];
+    changed = true;
+  }
+  // Records created before internal ownership was introduced have no owner
+  // field. Do not infer one from the first user who speaks or from a Telegram
+  // admin: it is set only by BOT_OWNER_ID or an authorized transfer.
+  if (!Number.isSafeInteger(data.config.botOwnerId)) {
+    data.config.botOwnerId = null;
     changed = true;
   }
   for (const id of data.memberIds) {

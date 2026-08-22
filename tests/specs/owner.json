@@ -1,0 +1,24 @@
+[
+  {
+    "name": "set owner guides unauthorized users",
+    "steps": [
+      {
+        "send": { "text": "/set_owner 22", "chatId": 980, "userId": 7 },
+        "expect": [
+          { "method": "sendMessage", "payload": { "text": "Only the current bot owner or platform operator can change the bot owner." } }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "botinfo is restricted to the owner",
+    "steps": [
+      {
+        "send": { "text": "/botinfo", "chatId": 981, "userId": 7 },
+        "expect": [
+          { "method": "sendMessage", "payload": { "text": "Only the bot owner can view bot ownership details." } }
+        ]
+      }
+    ]
+  }
+]

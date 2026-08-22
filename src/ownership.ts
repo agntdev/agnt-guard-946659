@@ -3,6 +3,7 @@
 // Keep this in one place so authorization never silently differs by runtime.
 
 import type { Ctx } from "./bot.js";
+import { logAction, putChat, type ChatData } from "./store.js";
 
 type OwnerEnv = { OWNER_TELEGRAM_ID?: string | number; BOT_OWNER_ID?: string | number };
 
@@ -12,18 +13,45 @@ function parseOwnerId(value: unknown): number | null {
   return /^\d+$/.test(text) && Number.isSafeInteger(Number(text)) ? Number(text) : null;
 }
 
-/** The configured global bot owner, or null while the binding is unset. */
-export function configuredOwnerId(ctx: Ctx): number | null {
+/** Deployment-provided initial owner. It seeds a new per-group record only. */
+export function deploymentOwnerId(ctx: Ctx): number | null {
   const env = (ctx as Ctx & { env?: OwnerEnv }).env;
-  // BOT_OWNER_ID is the current deployment binding. OWNER_TELEGRAM_ID remains
-  // supported for existing deployments until they are migrated.
   return parseOwnerId(env?.BOT_OWNER_ID)
-    ?? parseOwnerId(env?.OWNER_TELEGRAM_ID)
-    ?? parseOwnerId(typeof process === "undefined" ? undefined : process.env.BOT_OWNER_ID)
+    ?? parseOwnerId(typeof process === "undefined" ? undefined : process.env.BOT_OWNER_ID);
+}
+
+/** Platform/deployer operator. This is deliberately separate from bot ownership. */
+export function operatorId(ctx: Ctx): number | null {
+  const env = (ctx as Ctx & { env?: OwnerEnv }).env;
+  return parseOwnerId(env?.OWNER_TELEGRAM_ID)
     ?? parseOwnerId(typeof process === "undefined" ? undefined : process.env.OWNER_TELEGRAM_ID);
 }
 
-/** True only for the owner explicitly supplied at deployment. */
-export function isConfiguredOwner(ctx: Ctx): boolean {
-  return ctx.from !== undefined && configuredOwnerId(ctx) === ctx.from.id;
+export function isOperator(ctx: Ctx): boolean {
+  return ctx.from?.id === operatorId(ctx);
+}
+
+/**
+ * Resolve the durable owner and seed it once from BOT_OWNER_ID. The deployment
+ * binding is never allowed to overwrite a deliberate in-bot ownership transfer.
+ */
+export async function botOwnerId(ctx: Ctx, data: ChatData): Promise<number | null> {
+  if (data.config.botOwnerId !== null) return data.config.botOwnerId;
+  const seeded = deploymentOwnerId(ctx);
+  if (seeded === null || !ctx.chat) return null;
+  data.config.botOwnerId = seeded;
+  logAction(data, ctx.chat.id, {
+    actor: 0,
+    target: seeded,
+    action: "owner_change",
+    reason: "initialized bot owner from deployment setting",
+  });
+  await putChat(ctx.chat.id, data);
+  return seeded;
+}
+
+/** Bot owner and platform operator both bypass internal authorization checks. */
+export async function isBotOwner(ctx: Ctx, data: ChatData): Promise<boolean> {
+  if (!ctx.from) return false;
+  return isOperator(ctx) || (await botOwnerId(ctx, data)) === ctx.from.id;
 }

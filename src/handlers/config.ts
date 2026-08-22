@@ -3,7 +3,7 @@ import type { Ctx } from "../bot.js";
 import { registerMainMenuItem, inlineButton, inlineKeyboard } from "../toolkit/index.js";
 import { getChat, putChat, logAction, VERIFICATION_WINDOW_LABEL, type ChatData } from "../store.js";
 import { answerCallback, editOrReply } from "../telegram.js";
-import { isConfiguredOwner } from "../ownership.js";
+import { isBotOwner } from "../ownership.js";
 
 // GroupGuard — configuration management. Admins edit the welcome text, rules,
 // the spam-escalation threshold, and the notification target for summary
@@ -37,7 +37,7 @@ const OWNER_DENIED = "Only the bot owner may edit bot settings.";
 async function requireConfigurationOwner(ctx: Ctx): Promise<ChatData | null> {
   if (!ctx.chat || !ctx.from) return null;
   const data = await getChat(ctx.chat.id);
-  if (isConfiguredOwner(ctx)) return data;
+  if (await isBotOwner(ctx, data)) return data;
 
   logAction(data, ctx.chat.id, {
     actor: ctx.from.id,
