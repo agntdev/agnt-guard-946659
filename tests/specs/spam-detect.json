@@ -25,5 +25,26 @@
         ]
       }
     ]
+  },
+  {
+    "name": "A current group administrator is never auto-moderated for a spam match",
+    "strict": true,
+    "steps": [
+      {
+        "send": {
+          "update": {
+            "update_id": 2,
+            "message": {
+              "message_id": 2,
+              "date": 0,
+              "chat": { "id": 301, "type": "supergroup", "title": "Test" },
+              "from": { "id": 1, "is_bot": false, "first_name": "Administrator" },
+              "text": "http://admin.example"
+            }
+          }
+        },
+        "expect": [{ "method": "getChatMember" }]
+      }
+    ]
   }
 ]
