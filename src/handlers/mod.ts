@@ -8,6 +8,7 @@ import {
   memberListKeyboard,
   showMemberList,
   applyAction,
+  botRightsForAction,
   parseDuration,
   formatDuration,
   displayName,
@@ -51,9 +52,9 @@ composer.callbackQuery("admin:panel", async (ctx) => {
 // Tap a member for a given action — start the reason/duration flow (or toggle trust).
 composer.callbackQuery(/^act:(warn|mute|kick|ban|trust):(-?\d+)$/, async (ctx) => {
   await answerCallback(ctx);
-  const data = await requireAdmin(ctx);
-  if (!data) return;
   const action = ctx.match![1] as "warn" | "mute" | "kick" | "ban" | "trust";
+  const data = await requireAdmin(ctx, botRightsForAction(action));
+  if (!data) return;
   const targetId = Number(ctx.match![2]);
   const target = data.members[targetId];
   const name = displayName(target?.firstName ?? "", targetId);
@@ -107,7 +108,8 @@ composer.on("message:text").filter(
       return;
     }
 
-    const data = await getChat(ctx.chat.id);
+    const data = await requireAdmin(ctx, botRightsForAction(action));
+    if (!data) return;
     const target = data.members[targetId];
     const name = displayName(target?.firstName ?? "", targetId);
 

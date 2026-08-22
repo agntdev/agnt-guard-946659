@@ -1,0 +1,28 @@
+[
+  {
+    "name": "A group administrator can open the moderation panel",
+    "steps": [
+      {
+        "send": {
+          "update": {
+            "update_id": 901,
+            "message": {
+              "message_id": 901,
+              "date": 0,
+              "chat": { "id": 901, "type": "supergroup", "title": "Permissions" },
+              "from": { "id": 1, "is_bot": false, "first_name": "Administrator" },
+              "text": "/mod",
+              "entities": [{ "type": "bot_command", "offset": 0, "length": 4 }]
+            }
+          }
+        },
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": { "text": "Moderation panel. Pick an action, then choose a member to apply it to." }
+          }
+        ]
+      }
+    ]
+  }
+]

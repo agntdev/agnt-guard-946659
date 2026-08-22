@@ -1,7 +1,7 @@
 import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
 import { getChat, putChat, logAction, upsertMember, type ChatData } from "../store.js";
-import { applyAction, formatDuration, parseDuration, requireAdmin } from "../moderation.js";
+import { applyAction, botRightsForAction, formatDuration, parseDuration, requireAdmin } from "../moderation.js";
 import { modPanelKeyboard } from "../moderation.js";
 
 const composer = new Composer<Ctx>();
@@ -84,7 +84,7 @@ async function needTarget(ctx: Ctx, data: ChatData, allowProvided = false): Prom
 }
 
 async function execute(ctx: Ctx, action: "warn" | "kick" | "ban", reason: string): Promise<void> {
-  const data = await requireAdmin(ctx);
+  const data = await requireAdmin(ctx, botRightsForAction(action));
   if (!data || !ctx.chat || !ctx.from) return;
   const resolved = await needTarget(ctx, data);
   if (!resolved) return;
@@ -99,7 +99,7 @@ async function execute(ctx: Ctx, action: "warn" | "kick" | "ban", reason: string
 }
 
 composer.command("warn", async (ctx) => {
-  const data = await requireAdmin(ctx);
+  const data = await requireAdmin(ctx, botRightsForAction("warn"));
   if (!data || !ctx.chat || !ctx.from) return;
   const resolved = await needTarget(ctx, data, true);
   if (!resolved) return;
@@ -115,7 +115,7 @@ composer.command("kick", (ctx) => execute(ctx, "kick", commandArgument(ctx)));
 composer.command("ban", (ctx) => execute(ctx, "ban", commandArgument(ctx)));
 
 composer.command("mute", async (ctx) => {
-  const data = await requireAdmin(ctx);
+  const data = await requireAdmin(ctx, botRightsForAction("mute"));
   if (!data || !ctx.chat || !ctx.from) return;
   const resolved = await needTarget(ctx, data);
   if (!resolved) return;
@@ -131,7 +131,7 @@ composer.command("mute", async (ctx) => {
 });
 
 composer.command("unmute", async (ctx) => {
-  const data = await requireAdmin(ctx);
+  const data = await requireAdmin(ctx, botRightsForAction("mute"));
   if (!data || !ctx.chat || !ctx.from) return;
   const resolved = await needTarget(ctx, data);
   if (!resolved) return;
@@ -153,7 +153,7 @@ composer.command("unmute", async (ctx) => {
 });
 
 composer.command("warnings", async (ctx) => {
-  const data = await requireAdmin(ctx);
+  const data = await requireAdmin(ctx, botRightsForAction("warn"));
   if (!data || !ctx.chat) return;
   const resolved = await needTarget(ctx, data, true);
   if (!resolved) return;
@@ -163,7 +163,7 @@ composer.command("warnings", async (ctx) => {
 });
 
 composer.command("resetwarn", async (ctx) => {
-  const data = await requireAdmin(ctx);
+  const data = await requireAdmin(ctx, botRightsForAction("warn"));
   if (!data || !ctx.chat || !ctx.from) return;
   const resolved = await needTarget(ctx, data, true);
   if (!resolved) return;
@@ -175,7 +175,7 @@ composer.command("resetwarn", async (ctx) => {
 });
 
 composer.command("unban", async (ctx) => {
-  const data = await requireAdmin(ctx);
+  const data = await requireAdmin(ctx, botRightsForAction("ban"));
   if (!data || !ctx.chat) return;
   const resolved = await needTarget(ctx, data);
   if (!resolved) return;

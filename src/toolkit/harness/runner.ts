@@ -105,10 +105,15 @@ function settle(): Promise<void> {
  *  (e.g. reply() → editMessageText(returnedMessageId)). */
 function stubResult(method: string, payload: Record<string, unknown>, msgId: number): unknown {
   if (method === "getChatMember") {
+    const userId = payload.user_id as number;
     return {
-      status: "administrator",
-      user: { id: payload.user_id ?? 1, is_bot: false, first_name: "Test" },
+      // The acting harness user and the bot are administrators; arbitrary
+      // moderation targets are ordinary members. This lets action flows test
+      // the real "never moderate an admin" protection without special cases.
+      status: userId === 1 || userId === HARNESS_BOT_ID ? "administrator" : "member",
+      user: { id: userId ?? 1, is_bot: userId === HARNESS_BOT_ID, first_name: "Test" },
       can_manage_chat: true,
+      can_restrict_members: true,
     };
   }
   if (/^(send|edit|copy|forward)/.test(method)) {

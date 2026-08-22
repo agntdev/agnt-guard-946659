@@ -8,7 +8,6 @@ import {
   upsertMember,
   setTrusted,
   logAction,
-  isAdmin,
   DEFAULT_MUTE_SECONDS,
   type ChatData,
   type Action,
@@ -55,25 +54,86 @@ export function memberListKeyboard(data: ChatData, action: Action): InlineKeyboa
   return inlineKeyboard(rows);
 }
 
-/** Require the acting user be a group admin (no auto-promote here). */
-export async function requireAdmin(ctx: Ctx): Promise<ChatData | null> {
+type BotRight = "can_manage_chat" | "can_restrict_members";
+
+const BOT_RIGHT_LABEL: Record<BotRight, string> = {
+  can_manage_chat: "manage chat",
+  can_restrict_members: "restrict members",
+};
+
+function isAdministrator(member: { status: string }): boolean {
+  // Telegram called the group owner "creator" in older Bot API payloads and
+  // "owner" in newer ones. Accept both alongside ordinary administrators.
+  return member.status === "creator" || member.status === "owner" || member.status === "administrator";
+}
+
+function botRightMissing(member: unknown, right: BotRight): boolean {
+  const value = member as Record<string, unknown>;
+  return value[right] !== true;
+}
+
+function rightsMessage(rights: BotRight[]): string {
+  const labels = rights.map((right) => BOT_RIGHT_LABEL[right]);
+  return `I must be an administrator with ${labels.join(" and ")} to perform this action.`;
+}
+
+/**
+ * Authorize a group moderator and confirm the bot can carry out the requested
+ * action. Telegram is the source of truth: cached admin ids are only a display
+ * aid and never grant permission by themselves.
+ */
+export async function requireAdmin(ctx: Ctx, requiredBotRights: BotRight[] = ["can_manage_chat"]): Promise<ChatData | null> {
   if (!ctx.chat || !ctx.from) return null;
   const data = await getChat(ctx.chat.id);
-  let permitted = isAdmin(data, ctx.from.id);
+  let permitted = false;
   try {
     const member = await ctx.api.getChatMember(ctx.chat.id, ctx.from.id);
-    permitted = member.status === "creator" || member.status === "administrator";
+    permitted = isAdministrator(member);
+    console.debug("GroupGuard moderator authorization", {
+      chatId: ctx.chat.id,
+      userId: ctx.from.id,
+      status: member.status,
+      permitted,
+    });
     if (permitted && !data.adminIds.includes(ctx.from.id)) data.adminIds.push(ctx.from.id);
     if (!permitted) data.adminIds = data.adminIds.filter((id) => id !== ctx.from!.id);
     await putChat(ctx.chat.id, data);
   } catch {
-    // A previously verified admin remains usable during a short Telegram outage.
+    console.debug("GroupGuard moderator authorization failed", { chatId: ctx.chat.id, userId: ctx.from.id });
   }
   if (!permitted) {
-    await ctx.reply("Only group admins can manage moderation here.");
+    await ctx.reply("You must be a group administrator to manage moderators.");
+    return null;
+  }
+
+  try {
+    const botMember = await ctx.api.getChatMember(ctx.chat.id, ctx.me.id);
+    const missing = !isAdministrator(botMember)
+      ? requiredBotRights
+      : requiredBotRights.filter((right) => botRightMissing(botMember, right));
+    console.debug("GroupGuard bot authorization", {
+      chatId: ctx.chat.id,
+      botId: ctx.me.id,
+      status: botMember.status,
+      requiredBotRights,
+      missing,
+    });
+    if (missing.length > 0) {
+      await ctx.reply(rightsMessage(missing));
+      return null;
+    }
+  } catch {
+    console.debug("GroupGuard bot authorization failed", { chatId: ctx.chat.id, botId: ctx.me.id });
+    await ctx.reply(rightsMessage(requiredBotRights));
     return null;
   }
   return data;
+}
+
+export function botRightsForAction(action: Action): BotRight[] {
+  return action === "mute" || action === "kick" || action === "ban"
+    ? ["can_manage_chat", "can_restrict_members"]
+    : ["can_manage_chat"];
 }
 
 export function parseDuration(text: string): number | null {
@@ -97,6 +157,21 @@ export async function applyAction(
   reason: string,
   durationSeconds: number | null,
 ): Promise<string> {
+  // Telegram does not permit a bot to restrict another administrator. More
+  // importantly, never turn a moderator command into an infraction against a
+  // fellow admin just because a stale local record labelled them as a member.
+  try {
+    const targetMember = await ctx.api.getChatMember(chatId, targetId);
+    if (isAdministrator(targetMember)) {
+      console.debug("GroupGuard skipped action against administrator", { chatId, targetId, action });
+      return "I can't moderate another group administrator.";
+    }
+  } catch {
+    // The subsequent Bot API operation remains the source of truth. A target
+    // lookup can fail for a recently departed member without making the whole
+    // moderation flow unusable.
+  }
+
   const target = upsertMember(data, targetId, "", {});
   const name = displayName(target.firstName, targetId);
 
@@ -184,7 +259,7 @@ export { putChat };
 /** Render a member picker for `action` (used by the warn/mute/kick/ban/trust
  *  buttons). Empty state when the group has no members yet. */
 export async function showMemberList(ctx: Ctx, action: Action): Promise<void> {
-  const data = await requireAdmin(ctx);
+  const data = await requireAdmin(ctx, botRightsForAction(action));
   if (!data) return;
   if (data.memberIds.length === 0) {
     await editOrReply(ctx,
