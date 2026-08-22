@@ -24,5 +24,31 @@
         ]
       }
     ]
+  },
+  {
+    "name": "A regular member cannot manage moderators",
+    "steps": [
+      {
+        "send": {
+          "update": {
+            "update_id": 902,
+            "message": {
+              "message_id": 902,
+              "date": 0,
+              "chat": { "id": 902, "type": "supergroup", "title": "Permissions" },
+              "from": { "id": 2, "is_bot": false, "first_name": "Member" },
+              "text": "/mod",
+              "entities": [{ "type": "bot_command", "offset": 0, "length": 4 }]
+            }
+          }
+        },
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": { "text": "You don't have permission to manage moderators." }
+          }
+        ]
+      }
+    ]
   }
 ]

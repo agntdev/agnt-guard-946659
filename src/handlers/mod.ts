@@ -1,7 +1,7 @@
 import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
 import { registerMainMenuItem, inlineButton, inlineKeyboard } from "../toolkit/index.js";
-import { getChat } from "../store.js";
+import { getChat, putChat, setModerator } from "../store.js";
 import {
   modPanelKeyboard,
   requireAdmin,
@@ -12,7 +12,6 @@ import {
   parseDuration,
   formatDuration,
   displayName,
-  putChat,
 } from "../moderation.js";
 import { answerCallback, editOrReply } from "../telegram.js";
 
@@ -44,6 +43,73 @@ composer.callbackQuery("admin:panel", async (ctx) => {
   const data = await requireAdmin(ctx);
   if (!data) return;
   await editOrReply(ctx, PANEL_TEXT, { reply_markup: modPanelKeyboard() });
+});
+
+function moderatorsKeyboard() {
+  return inlineKeyboard([
+    [inlineButton("Add moderator", "admin:moderators:add")],
+    [inlineButton("Remove moderator", "admin:moderators:remove")],
+    [inlineButton("⬅️ Back to panel", "admin:panel")],
+  ]);
+}
+
+function moderatorPicker(data: Awaited<ReturnType<typeof getChat>>, mode: "add" | "remove") {
+  const ids = mode === "add"
+    ? data.memberIds.filter((id) => !data.moderatorIds.includes(id))
+    : data.moderatorIds;
+  const rows = ids.map((id) => [inlineButton(displayName(data.members[id]?.firstName ?? "", id), `moderator:${mode}:${id}`)]);
+  rows.push([inlineButton("⬅️ Back", "admin:moderators")]);
+  return inlineKeyboard(rows);
+}
+
+composer.callbackQuery("admin:moderators", async (ctx) => {
+  await answerCallback(ctx);
+  const data = await requireAdmin(ctx);
+  if (!data) return;
+  const count = data.moderatorIds.length;
+  await editOrReply(ctx,
+    count === 0 ? "No internal moderators yet — add a trusted member to delegate moderation." : `Internal moderators: ${count}. Choose what to change.`,
+    { reply_markup: moderatorsKeyboard() },
+  );
+});
+
+composer.callbackQuery(/^admin:moderators:(add|remove)$/, async (ctx) => {
+  await answerCallback(ctx);
+  const data = await requireAdmin(ctx);
+  if (!data) return;
+  const mode = ctx.match![1] as "add" | "remove";
+  const available = mode === "add"
+    ? data.memberIds.some((id) => !data.moderatorIds.includes(id))
+    : data.moderatorIds.length > 0;
+  if (!available) {
+    await editOrReply(ctx,
+      mode === "add" ? "No eligible members yet — wait for someone to join first." : "No internal moderators to remove.",
+      { reply_markup: moderatorsKeyboard() },
+    );
+    return;
+  }
+  await editOrReply(ctx, mode === "add" ? "Choose a member to make a moderator." : "Choose a moderator to remove.", {
+    reply_markup: moderatorPicker(data, mode),
+  });
+});
+
+composer.callbackQuery(/^moderator:(add|remove):(-?\d+)$/, async (ctx) => {
+  await answerCallback(ctx);
+  const data = await requireAdmin(ctx);
+  if (!data || !ctx.chat) return;
+  const mode = ctx.match![1] as "add" | "remove";
+  const targetId = Number(ctx.match![2]);
+  if (!data.members[targetId] || (mode === "add" && data.moderatorIds.includes(targetId)) || (mode === "remove" && !data.moderatorIds.includes(targetId))) {
+    await editOrReply(ctx, "That moderator list has changed. Open it again and choose a member.", { reply_markup: moderatorsKeyboard() });
+    return;
+  }
+  setModerator(data, targetId, mode === "add");
+  await putChat(ctx.chat.id, data);
+  const name = displayName(data.members[targetId]?.firstName ?? "", targetId);
+  await editOrReply(ctx,
+    mode === "add" ? `${name} can now manage moderation in this group.` : `${name} can no longer manage moderation in this group.`,
+    { reply_markup: moderatorsKeyboard() },
+  );
 });
 
 // Each admin action button (admin:warn / admin:mute / ...) lives in its own

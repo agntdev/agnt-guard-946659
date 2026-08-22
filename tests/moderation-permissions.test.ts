@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildBot } from "../src/bot";
+import { getChat, putChat, setModerator, upsertMember } from "../src/store";
+import { callbackUpdate } from "../src/toolkit/harness/updates";
 
 const botInfo = {
   id: 42,
@@ -64,10 +66,10 @@ async function runMod(
 }
 
 describe("moderator authorization", () => {
-  it("tells a non-admin exactly what they need", async () => {
+  it("denies a regular member without exposing internal permission details", async () => {
     const calls = await runMod(801, "member", { status: "administrator", can_manage_chat: true });
     expect(calls.find((call) => call.method === "sendMessage")?.payload.text)
-      .toBe("You must be a group administrator to manage moderators.");
+      .toBe("You don't have permission to manage moderators.");
   });
 
   it("allows an administrator and a creator", async () => {
@@ -93,10 +95,51 @@ describe("moderator authorization", () => {
   it("rejects private-chat members while allowing a limited administrator to open the panel", async () => {
     const privateCalls = await runMod(805, "member", { status: "administrator", can_manage_chat: true }, "private");
     expect(privateCalls.find((call) => call.method === "sendMessage")?.payload.text)
-      .toBe("You must be a group administrator to manage moderators.");
+      .toBe("You don't have permission to manage moderators.");
 
     const limitedCalls = await runMod(806, "administrator", { status: "administrator", can_manage_chat: true });
     expect(limitedCalls.find((call) => call.method === "sendMessage")?.payload.text)
       .toBe("Moderation panel. Pick an action, then choose a member to apply it to.");
+  });
+
+  it("allows a bot-designated moderator who is not a Telegram administrator", async () => {
+    const chatId = 808;
+    const data = await getChat(chatId);
+    upsertMember(data, 9, "Moderator");
+    setModerator(data, 9, true);
+    await putChat(chatId, data);
+    const calls = await runMod(chatId, "member", { status: "administrator", can_manage_chat: true });
+    expect(calls.find((call) => call.method === "sendMessage")?.payload.text)
+      .toBe("Moderation panel. Pick an action, then choose a member to apply it to.");
+  });
+
+  it("persists moderator changes made through the management callback", async () => {
+    const chatId = 809;
+    const data = await getChat(chatId);
+    upsertMember(data, 9, "Moderator");
+    setModerator(data, 9, true);
+    upsertMember(data, 12, "New moderator");
+    await putChat(chatId, data);
+
+    const instance = await buildBot("123456:TEST");
+    instance.botInfo = botInfo;
+    instance.api.config.use(async (_prev, method, payload) => {
+      const request = (payload ?? {}) as Record<string, unknown>;
+      if (method === "getChatMember") {
+        const userId = request.user_id as number;
+        return {
+          ok: true,
+          result: userId === botInfo.id
+            ? { status: "administrator", user: botInfo, can_manage_chat: true }
+            : { status: "member", user: { id: userId, is_bot: false, first_name: "Member" } },
+        } as any;
+      }
+      return { ok: true, result: true } as any;
+    });
+    await instance.handleUpdate(callbackUpdate(1, "moderator:add:12", { chatId, userId: 9 }));
+
+    const saved = await getChat(chatId);
+    expect(saved.moderatorIds).toContain(12);
+    expect(saved.members[12]?.admin).toBe(true);
   });
 });

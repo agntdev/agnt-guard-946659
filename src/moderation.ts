@@ -7,6 +7,7 @@ import {
   putChat,
   upsertMember,
   setTrusted,
+  isAdmin,
   logAction,
   DEFAULT_MUTE_SECONDS,
   type ChatData,
@@ -36,6 +37,7 @@ export function modPanelKeyboard(): InlineKeyboardMarkup {
     [inlineButton("🔇 Mute", "admin:mute"), inlineButton("👢 Kick", "admin:kick")],
     [inlineButton("⛔ Ban", "admin:ban"), inlineButton("✅ Mark Trusted", "admin:trust")],
     [inlineButton("📊 View Stats", "admin:stats")],
+    [inlineButton("Manage moderators", "admin:moderators")],
     [inlineButton("⚙️ Settings", "config:panel")],
     [inlineButton("⬅️ Back to menu", "menu:main")],
   ]);
@@ -79,30 +81,24 @@ function rightsMessage(rights: BotRight[]): string {
 
 /**
  * Authorize a group moderator and confirm the bot can carry out the requested
- * action. Telegram is the source of truth: cached admin ids are only a display
- * aid and never grant permission by themselves.
+ * action. A Telegram administrator/owner is always allowed. GroupGuard's
+ * explicit moderator role is also allowed: it is a durable, per-group
+ * delegation made through the moderation panel, not an incidental cache of a
+ * Telegram lookup.
  */
 export async function requireAdmin(ctx: Ctx, requiredBotRights: BotRight[] = ["can_manage_chat"]): Promise<ChatData | null> {
   if (!ctx.chat || !ctx.from) return null;
   const data = await getChat(ctx.chat.id);
-  let permitted = false;
+  const internallyDelegated = isAdmin(data, ctx.from.id);
+  let telegramAdministrator = false;
   try {
     const member = await ctx.api.getChatMember(ctx.chat.id, ctx.from.id);
-    permitted = isAdministrator(member);
-    console.debug("GroupGuard moderator authorization", {
-      chatId: ctx.chat.id,
-      userId: ctx.from.id,
-      status: member.status,
-      permitted,
-    });
-    if (permitted && !data.adminIds.includes(ctx.from.id)) data.adminIds.push(ctx.from.id);
-    if (!permitted) data.adminIds = data.adminIds.filter((id) => id !== ctx.from!.id);
+    telegramAdministrator = isAdministrator(member);
+    if (telegramAdministrator && !data.adminIds.includes(ctx.from.id)) data.adminIds.push(ctx.from.id);
     await putChat(ctx.chat.id, data);
-  } catch {
-    console.debug("GroupGuard moderator authorization failed", { chatId: ctx.chat.id, userId: ctx.from.id });
-  }
-  if (!permitted) {
-    await ctx.reply("You must be a group administrator to manage moderators.");
+  } catch { /* Keep a durable internal role usable if Telegram lookup is temporarily unavailable. */ }
+  if (!telegramAdministrator && !internallyDelegated) {
+    await ctx.reply("You don't have permission to manage moderators.");
     return null;
   }
 
@@ -111,19 +107,11 @@ export async function requireAdmin(ctx: Ctx, requiredBotRights: BotRight[] = ["c
     const missing = !isAdministrator(botMember)
       ? requiredBotRights
       : requiredBotRights.filter((right) => botRightMissing(botMember, right));
-    console.debug("GroupGuard bot authorization", {
-      chatId: ctx.chat.id,
-      botId: ctx.me.id,
-      status: botMember.status,
-      requiredBotRights,
-      missing,
-    });
     if (missing.length > 0) {
       await ctx.reply(rightsMessage(missing));
       return null;
     }
   } catch {
-    console.debug("GroupGuard bot authorization failed", { chatId: ctx.chat.id, botId: ctx.me.id });
     await ctx.reply(rightsMessage(requiredBotRights));
     return null;
   }
