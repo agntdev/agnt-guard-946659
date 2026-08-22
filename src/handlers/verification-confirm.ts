@@ -164,7 +164,10 @@ composer.callbackQuery("verification:confirm", async (ctx) => {
   try {
     await ctx.api.restrictChatMember(chatId, userId, GRANTED);
   } catch {
-    // best-effort
+    await ctx.reply(
+      `✅ Thanks, ${displayName(storedName, userId)} — you're verified. I couldn't restore messaging yet, so ask a group admin to check my permissions.`,
+    );
+    return;
   }
   await ctx.reply(
     `✅ Thanks, ${displayName(storedName, userId)} — you're verified and can send messages now.`,

@@ -1,8 +1,9 @@
 import { Composer } from "grammy";
 import type { Ctx } from "../bot.js";
-import { getChat, putChat, upsertMember, logAction, type Action } from "../store.js";
+import { getChat, putChat, upsertMember, logAction } from "../store.js";
 import { now } from "../clock.js";
 import { DEFAULT_MUTE_SECONDS } from "../store.js";
+import { sweepExpiredVerifications } from "./verification-timeout.js";
 
 // GroupGuard — spam detection on group messages. Admins and trusted members are
 // exempt. A first hit warns the sender; repeat hits escalate to mute, kick, and
@@ -20,6 +21,8 @@ const BLACKLIST = [
   "buy followers",
   "limited time offer",
 ];
+
+type SpamAction = "warn" | "mute" | "kick" | "ban";
 
 interface SpamVerdict {
   spam: boolean;
@@ -44,11 +47,25 @@ function analyze(text: string): SpamVerdict {
   return { spam: false, reason: "" };
 }
 
-function escalation(hitCount: number): Action {
-  if (hitCount <= 1) return "warn";
-  if (hitCount === 2) return "mute";
-  if (hitCount === 3) return "kick";
+function escalation(hitCount: number, threshold: number): SpamAction {
+  if (hitCount < threshold) return "warn";
+  if (hitCount === threshold) return "mute";
+  if (hitCount === threshold + 1) return "kick";
   return "ban";
+}
+
+function enabledAction(
+  action: SpamAction,
+  enabled: { warn: boolean; mute: boolean; kick: boolean; ban: boolean },
+): SpamAction | null {
+  // Never turn a disabled action into a more severe one. If the selected stage
+  // is off, use the strongest enabled action at or below that stage.
+  const levels: SpamAction[] = ["warn", "mute", "kick", "ban"];
+  for (let i = levels.indexOf(action); i >= 0; i -= 1) {
+    const candidate = levels[i]!;
+    if (enabled[candidate]) return candidate;
+  }
+  return null;
 }
 
 function isGroup(ctx: Ctx): boolean {
@@ -64,6 +81,7 @@ composer.on("message:text").filter(
   (ctx): boolean => isGroup(ctx) && !isCommand(ctx),
   async (ctx) => {
     const chatId = ctx.chat!.id;
+    await sweepExpiredVerifications(ctx);
     const sender = ctx.message.from;
     if (!sender || sender.is_bot) return;
 
@@ -81,9 +99,10 @@ composer.on("message:text").filter(
     }
 
     member.infractions += 1;
-    const action = escalation(member.infractions);
+    const selected = escalation(member.infractions, data.config.spamThreshold);
+    const action = enabledAction(selected, data.config.enabledActions);
     const reason = `spam: ${verdict.reason}`;
-    logAction(data, chatId, { actor: 0, target: sender.id, action, reason });
+    logAction(data, chatId, { actor: 0, target: sender.id, action: action ?? "spam", reason });
     await putChat(chatId, data);
 
     try {
@@ -132,7 +151,9 @@ composer.on("message:text").filter(
         notice = `⛔ ${name} banned — persistent spam (${verdict.reason}).`;
         break;
       default:
-        notice = `⚠️ ${name}: that looked like spam (${verdict.reason}). Repeated spam leads to a mute, kick, or ban.`;
+        notice = action === null
+          ? `⚠️ ${name}: that looked like spam (${verdict.reason}). Automatic member actions are currently turned off.`
+          : `⚠️ ${name}: that looked like spam (${verdict.reason}). Repeated spam leads to a mute, kick, or ban.`;
     }
     await ctx.reply(notice);
   },
