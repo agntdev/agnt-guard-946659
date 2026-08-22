@@ -1,5 +1,12 @@
 import type { Ctx } from "./bot.js";
 
+// A callback has one acknowledgement window. Middleware acknowledges it before
+// doing durable I/O; individual handlers call answerCallback as well, so keep
+// that helper idempotent for the lifetime of this update.
+const CALLBACK_ANSWERED = Symbol("groupguard.callbackAnswered");
+
+type CallbackAwareCtx = Ctx & { [CALLBACK_ANSWERED]?: boolean };
+
 export function isBenignTelegramUiError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   // Telegram varies this wording between chat types and Bot API versions. A
@@ -50,6 +57,9 @@ export function softenTelegramUiErrors(ctx: Ctx): void {
  * rejects stale callback ids and identical/old messages; neither should abort a
  * moderation action. */
 export async function answerCallback(ctx: Ctx): Promise<void> {
+  const callbackCtx = ctx as CallbackAwareCtx;
+  if (callbackCtx[CALLBACK_ANSWERED]) return;
+  callbackCtx[CALLBACK_ANSWERED] = true;
   try {
     await ctx.answerCallbackQuery();
   } catch {

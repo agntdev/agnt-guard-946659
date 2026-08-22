@@ -19,6 +19,7 @@ function panelKeyboard() {
     [inlineButton("📝 Welcome text", "config:edit:welcome")],
     [inlineButton("📋 Rules", "config:edit:rules")],
     [inlineButton("🔢 Spam threshold", "config:edit:threshold")],
+    [inlineButton("🛡 Spam actions", "config:actions")],
     [inlineButton("🔔 Summary target", "config:edit:notify")],
     [inlineButton("⬅️ Back to menu", "menu:main")],
   ]);
@@ -101,6 +102,43 @@ composer.callbackQuery("config:edit:notify", async (ctx) => {
   await putChat(ctx.chat.id, data);
   await editOrReply(ctx, "✅ Saved. This chat will receive moderation summaries.", {
     reply_markup: backToPanelKeyboard(),
+  });
+});
+
+function actionsKeyboard(data: ChatData) {
+  const label = (action: "warn" | "mute" | "kick" | "ban") =>
+    `${data.config.enabledActions[action] ? "✅" : "○"} ${action[0]!.toUpperCase()}${action.slice(1)}`;
+  return inlineKeyboard([
+    [inlineButton(label("warn"), "config:action:warn"), inlineButton(label("mute"), "config:action:mute")],
+    [inlineButton(label("kick"), "config:action:kick"), inlineButton(label("ban"), "config:action:ban")],
+    [inlineButton("⬅️ Back to settings", "config:panel")],
+  ]);
+}
+
+composer.callbackQuery("config:actions", async (ctx) => {
+  await answerCallback(ctx);
+  const data = await requireConfigurationOwner(ctx);
+  if (!data) return;
+  await editOrReply(ctx, "Choose which automatic spam actions GroupGuard may use.", {
+    reply_markup: actionsKeyboard(data),
+  });
+});
+
+composer.callbackQuery(/^config:action:(warn|mute|kick|ban)$/, async (ctx) => {
+  await answerCallback(ctx);
+  const data = await requireConfigurationOwner(ctx);
+  if (!data || !ctx.chat || !ctx.from) return;
+  const action = ctx.match![1] as "warn" | "mute" | "kick" | "ban";
+  data.config.enabledActions[action] = !data.config.enabledActions[action];
+  logAction(data, ctx.chat.id, {
+    actor: ctx.from.id,
+    target: ctx.from.id,
+    action: "config",
+    reason: `${data.config.enabledActions[action] ? "enabled" : "disabled"} automatic spam ${action}`,
+  });
+  await putChat(ctx.chat.id, data);
+  await editOrReply(ctx, "Choose which automatic spam actions GroupGuard may use.", {
+    reply_markup: actionsKeyboard(data),
   });
 });
 

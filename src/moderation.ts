@@ -269,7 +269,7 @@ export async function applyAction(
           { until_date: Math.round(now() / 1000) + secs },
         );
       } catch {
-        // best-effort
+        return `Couldn't mute ${name}. Check that I can restrict members in this group.`;
       }
       target.infractions += 1;
       logAction(data, chatId, { actor: actorId, target: targetId, action: "mute", reason });
@@ -280,7 +280,7 @@ export async function applyAction(
         await ctx.api.banChatMember(chatId, targetId);
         await ctx.api.unbanChatMember(chatId, targetId);
       } catch {
-        // best-effort
+        return `Couldn't remove ${name}. Check that I can restrict members in this group.`;
       }
       target.infractions += 1;
       logAction(data, chatId, { actor: actorId, target: targetId, action: "kick", reason });
@@ -290,7 +290,7 @@ export async function applyAction(
       try {
         await ctx.api.banChatMember(chatId, targetId);
       } catch {
-        // best-effort
+        return `Couldn't ban ${name}. Check that I can restrict members in this group.`;
       }
       target.infractions += 1;
       logAction(data, chatId, { actor: actorId, target: targetId, action: "ban", reason });

@@ -1,0 +1,38 @@
+[
+  {
+    "name": "A pending verification remains open before its deadline",
+    "strict": true,
+    "steps": [
+      {
+        "send": {
+          "update": {
+            "update_id": 710,
+            "message": {
+              "message_id": 710,
+              "date": 0,
+              "chat": { "id": 710, "type": "supergroup", "title": "Timeout" },
+              "from": { "id": 1, "is_bot": false, "first_name": "Admin" },
+              "new_chat_members": [{ "id": 711, "is_bot": false, "first_name": "Pending" }]
+            }
+          }
+        },
+        "expect": [{ "method": "restrictChatMember" }, { "method": "sendMessage" }]
+      },
+      {
+        "send": {
+          "update": {
+            "update_id": 711,
+            "message": {
+              "message_id": 711,
+              "date": 0,
+              "chat": { "id": 710, "type": "supergroup", "title": "Timeout" },
+              "from": { "id": 1, "is_bot": false, "first_name": "Admin" },
+              "text": "A normal group message"
+            }
+          }
+        },
+        "expect": []
+      }
+    ]
+  }
+]

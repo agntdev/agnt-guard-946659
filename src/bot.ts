@@ -69,9 +69,12 @@ export async function buildBot(token: string, opts: BuildBotOptions = {}) {
     // durably before handlers mutate membership, configuration, or audit data.
     // Still acknowledge the duplicate so Telegram stops retrying it.
     if (ctx.callbackQuery && ctx.chat) {
+      // Do not let a slow Redis/Durable Object round-trip consume Telegram's
+      // short callback acknowledgement window. answerCallback is idempotent,
+      // so feature handlers can retain their usual immediate acknowledgement.
+      await answerCallback(ctx);
       const claimed = await claimCallback(ctx.chat.id, ctx.callbackQuery.id);
       if (!claimed) {
-        await answerCallback(ctx);
         return;
       }
     }
@@ -81,7 +84,14 @@ export async function buildBot(token: string, opts: BuildBotOptions = {}) {
   const handlers = opts.handlers ?? (await loadHandlersFromDisk());
   for (const h of handlers) bot.use(h);
 
-  bot.on("message", (ctx) => ctx.reply("Sorry, I didn't understand that. Try /help."));
+  // Ordinary group conversation must stay quiet. A catch-all reply here would
+  // make GroupGuard interrupt every clean member message after moderation has
+  // inspected it. Keep the recovery hint for private chats only.
+  bot.on("message", (ctx) => {
+    if (ctx.chat?.type === "private") {
+      return ctx.reply("Sorry, I didn't understand that. Try /help.");
+    }
+  });
 
   return bot;
 }
