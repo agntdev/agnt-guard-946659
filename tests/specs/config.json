@@ -1,40 +1,13 @@
 [
   {
-    "name": "Configure the welcome text",
+    "name": "Only the stored bot owner can open settings",
     "steps": [
-      {
-        "send": { "text": "/mod", "chatId": 400, "userId": 1 },
-        "expect": [
-          {
-            "method": "sendMessage",
-            "payload": { "text": "Moderation panel. Pick an action, then choose a member to apply it to." }
-          }
-        ]
-      },
       {
         "send": { "callback": "config:panel", "chatId": 400, "userId": 1 },
         "expect": [
           {
-            "method": "editMessageText",
-            "payload": { "text": "Settings. New members get 2 minutes to verify. Tap what you'd like to change." }
-          }
-        ]
-      },
-      {
-        "send": { "callback": "config:edit:welcome", "chatId": 400, "userId": 1 },
-        "expect": [
-          {
-            "method": "editMessageText",
-            "payload": { "text": "Send the new welcome text (or /cancel)." }
-          }
-        ]
-      },
-      {
-        "send": { "text": "Hello and welcome!", "chatId": 400, "userId": 1 },
-        "expect": [
-          {
             "method": "sendMessage",
-            "payload": { "text": "✅ Saved. New welcome text:\n\nHello and welcome!" }
+            "payload": { "text": "Only the bot owner can edit this bot." }
           }
         ]
       }

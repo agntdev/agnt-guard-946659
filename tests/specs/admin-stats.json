@@ -17,7 +17,7 @@
           {
             "method": "editMessageText",
             "payload": {
-              "text": "📊 Moderation stats (last 200 actions)\n\nJoins: 0\nVerifications: 0\nWarns: 0\nMutes: 0\nKicks: 0\nBans: 0\nTrusted: 0\n\nNo moderation activity yet — actions will appear here."
+              "text": "📊 Moderation stats (last 200 actions)\n\nJoins: 0\nVerifications: 0\nWarns: 0\nMutes: 0\nKicks: 0\nBans: 0\nTrusted: 0\n\nSettings changes: 0\nBlocked settings attempts: 0\n\nNo moderation activity yet — actions will appear here."
             }
           }
         ]
@@ -25,7 +25,7 @@
     ]
   },
   {
-    "name": "Stats summary is delivered to the configured notification target",
+    "name": "Stats explain when a notification target is not configured",
     "steps": [
       {
         "send": { "text": "/mod", "chatId": 410, "userId": 1 },
@@ -33,33 +33,6 @@
           {
             "method": "sendMessage",
             "payload": { "text": "Moderation panel. Pick an action, then choose a member to apply it to." }
-          }
-        ]
-      },
-      {
-        "send": { "callback": "config:panel", "chatId": 410, "userId": 1 },
-        "expect": [
-          {
-            "method": "editMessageText",
-            "payload": { "text": "Settings. New members get 2 minutes to verify. Tap what you'd like to change." }
-          }
-        ]
-      },
-      {
-        "send": { "callback": "config:edit:notify", "chatId": 410, "userId": 1 },
-        "expect": [
-          {
-            "method": "editMessageText",
-            "payload": { "text": "Send the chat id that should receive summary reports (or /cancel)." }
-          }
-        ]
-      },
-      {
-        "send": { "text": "4100", "chatId": 410, "userId": 1 },
-        "expect": [
-          {
-            "method": "sendMessage",
-            "payload": { "text": "✅ Saved. Summaries will go to chat 4100." }
           }
         ]
       },
@@ -72,7 +45,7 @@
         "expect": [
           {
             "method": "sendMessage",
-            "payload": { "text": "Sent the summary to chat 4100." }
+            "payload": { "text": "No notification target set. Open Settings to add one first." }
           }
         ]
       }

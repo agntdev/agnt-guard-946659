@@ -12,6 +12,8 @@ export interface Session {
   step?: "idle" | "reason" | "duration" | "config_welcome" | "config_rules" | "config_threshold" | "config_notify";
   pendingAction?: "warn" | "mute" | "kick" | "ban" | "trust";
   pendingTarget?: number;
+  /** The single user currently allowed to submit a settings value in this chat. */
+  configEditorId?: number;
 }
 
 export type Ctx = BotContext<Session>;
