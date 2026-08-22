@@ -68,7 +68,7 @@ composer.on("message:text").filter(
     if (!sender || sender.is_bot) return;
 
     const data = await getChat(chatId);
-    const member = upsertMember(data, sender.id, sender.first_name ?? "", {});
+    const member = upsertMember(data, sender.id, sender.first_name ?? "", { username: sender.username });
     if (data.adminIds.includes(sender.id) || member.trusted) {
       await putChat(chatId, data);
       return; // admins/trusted are exempt

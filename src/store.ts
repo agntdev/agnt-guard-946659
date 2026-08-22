@@ -14,10 +14,14 @@ export type Action = "warn" | "mute" | "kick" | "ban" | "trust" | "verify" | "jo
 export interface MemberRecord {
   userId: number;
   firstName: string;
+  /** Last observed username; Telegram users may change it later. */
+  username?: string;
   joinTime: number;
   trusted: boolean;
   admin: boolean;
   infractions: number;
+  /** Manual warnings are independent of automatic moderation infractions. */
+  warningCount: number;
 }
 
 export interface InfractionRecord {
@@ -26,6 +30,7 @@ export interface InfractionRecord {
   target: number; // user id acted upon
   action: Action;
   reason: string;
+  warningCount?: number;
   timestamp: number;
 }
 
@@ -96,6 +101,23 @@ const KEY = (chatId: number | string) => `gg:chat:${chatId}`;
 // so collections are read through those indices.
 const adapter: StorageAdapter<ChatData> = resolveSessionStorage<ChatData>(undefined);
 
+/**
+ * Records created before dedicated warning counts used `infractions` for the
+ * value shown by /warnings. Preserve that visible count once, then all future
+ * warning mutations use the separate field and no longer include mutes/kicks.
+ */
+function migrateWarningCounts(data: ChatData): boolean {
+  let changed = false;
+  for (const id of data.memberIds) {
+    const member = data.members[id];
+    if (member && !Number.isInteger(member.warningCount)) {
+      member.warningCount = Math.min(3, Math.max(0, member.infractions ?? 0));
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 /** Read a chat's record (creating + persisting a blank one if absent). */
 export async function getChat(chatId: number | string): Promise<ChatData> {
   const v = await Promise.resolve(adapter.read(KEY(chatId)));
@@ -104,6 +126,7 @@ export async function getChat(chatId: number | string): Promise<ChatData> {
     await adapter.write(KEY(chatId), fresh);
     return fresh;
   }
+  if (migrateWarningCounts(v)) await adapter.write(KEY(chatId), v);
   return v;
 }
 
@@ -130,6 +153,7 @@ export function logAction(
     target: entry.target,
     action: entry.action,
     reason: entry.reason,
+    ...(entry.warningCount === undefined ? {} : { warningCount: entry.warningCount }),
     timestamp: entry.timestamp ?? now(),
   };
   data.infractionIds.push(id);
@@ -163,6 +187,7 @@ export function upsertMember(
       trusted: false,
       admin: false,
       infractions: 0,
+      warningCount: 0,
     };
     if (!data.memberIds.includes(userId)) data.memberIds.push(userId);
     data.members[userId] = m;
