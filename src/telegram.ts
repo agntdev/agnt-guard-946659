@@ -14,7 +14,7 @@ export function isBenignTelegramUiError(error: unknown): boolean {
   // bot, so persisting the moderation decision must still complete. Treat the
   // equivalent delivery failures the same way, while leaving all other API
   // failures visible to the error boundary.
-  return /message is not modified|query is too old|query ID is invalid|not enough rights to send(?: text)? messages|have no rights to send (?:a )?message|bot was blocked by the user|user is deactivated|chat not found|message can't be edited|message to edit not found/i.test(message);
+  return /message is not modified|query is too old|query ID is invalid|not enough rights to send(?: text)? messages|have no rights to send (?:a )?message|bot was blocked by the user|user is deactivated|chat not found/i.test(message);
 }
 
 /**
@@ -54,8 +54,9 @@ export function softenTelegramUiErrors(ctx: Ctx): void {
 }
 
 /** Callback answers and message edits are best-effort UI affordances. Telegram
- * rejects stale callback ids and identical/old messages; neither should abort a
- * moderation action. */
+ * rejects stale callback ids and identical messages; neither should abort a
+ * moderation action. An old or non-editable message instead falls back to a
+ * fresh reply below, so the user is never left on an unusable panel. */
 export async function answerCallback(ctx: Ctx): Promise<void> {
   const callbackCtx = ctx as CallbackAwareCtx;
   if (callbackCtx[CALLBACK_ANSWERED]) return;

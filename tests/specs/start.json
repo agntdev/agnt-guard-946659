@@ -81,5 +81,17 @@
         ]
       }
     ]
+  },
+  {
+    "name": "Returning to the menu renders the main menu from an older panel",
+    "steps": [
+      {
+        "send": { "callback": "menu:main", "chatId": 4, "userId": 1, "messageId": 99 },
+        "expect": [
+          { "method": "answerCallbackQuery" },
+          { "method": "editMessageText", "payload": { "text": "GroupGuard is ready. Choose an option below." } }
+        ]
+      }
+    ]
   }
 ]
