@@ -61,6 +61,24 @@ describe("Telegram UI resilience", () => {
     expect(calls).toContain("editMessageText");
   });
 
+  it("replies with a fresh menu when Telegram says the source message is too old to edit", async () => {
+    const bot = await buildBot("123456:TEST");
+    bot.botInfo = botInfo;
+    const calls: string[] = [];
+    bot.api.config.use(async (_prev, method) => {
+      calls.push(method);
+      if (method === "answerCallbackQuery") return { ok: true, result: true } as any;
+      if (method === "editMessageText") {
+        return { ok: false, error_code: 400, description: "Bad Request: message can't be edited" } as any;
+      }
+      return { ok: true, result: true } as any;
+    });
+
+    await expect(bot.handleUpdate(callbackUpdate(3, "menu:main", { chatId: 78, userId: 1 }))).resolves.toBeUndefined();
+    expect(calls).toContain("editMessageText");
+    expect(calls).toContain("sendMessage");
+  });
+
   it("keeps an expired callback acknowledgement from aborting the update", async () => {
     const bot = await buildBot("123456:TEST");
     bot.botInfo = botInfo;
