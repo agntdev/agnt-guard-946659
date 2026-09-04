@@ -128,7 +128,15 @@ composer.on("message:text").filter(
     const verdict = analyze(ctx.message.text ?? "");
     if (!verdict.spam) {
       await putChat(chatId, data);
-      return; // clean message — silent
+      // Keep the verification window focused: a newcomer cannot yet send, and
+      // a stream of acknowledgements would bury their verification prompt.
+      const verificationIsOpen = Object.values(data.pending).some(
+        (challenge) => challenge.status === "pending" && now() <= challenge.expiry,
+      );
+      if (!verificationIsOpen) {
+        await ctx.reply("GroupGuard is active. Tap /start to open the controls, or use /help for guidance.");
+      }
+      return;
     }
 
     // Never moderate a Telegram administrator, even if they were promoted
