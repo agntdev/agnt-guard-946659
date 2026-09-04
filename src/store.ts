@@ -129,7 +129,27 @@ interface ChatIndex {
 // chat is its own record addressed directly by chat id — no keyspace scans, and
 // each record carries explicit index arrays (memberIds, infractionIds, auditIds)
 // so collections are read through those indices.
-const adapter: StorageAdapter<ChatData | ChatIndex> = resolveSessionStorage<ChatData | ChatIndex>(undefined);
+const defaultAdapter: StorageAdapter<ChatData | ChatIndex> =
+  resolveSessionStorage<ChatData | ChatIndex>(undefined);
+
+// The Node entry and harness use the toolkit's Redis-or-memory adapter above.
+// Workers must replace it with their Durable Object adapter before the bot is
+// assembled. Keeping this seam here prevents the domain store from silently
+// falling back to per-isolate memory while grammY sessions are durable.
+let adapter: StorageAdapter<ChatData | ChatIndex> = defaultAdapter;
+
+/**
+ * Select the durable adapter used by GroupGuard's domain records. This is
+ * called once by the Worker entry before handlers receive an update. The
+ * returned cleanup function keeps isolated tests from leaking an override.
+ */
+export function useStoreStorage(storage: StorageAdapter<ChatData | ChatIndex>): () => void {
+  const previous = adapter;
+  adapter = storage;
+  return () => {
+    adapter = previous;
+  };
+}
 
 /** Keep a direct, bounded list of chat records. This is an explicit index, not
  * a keyspace scan, and lets an authorized privacy reset reach every record the
