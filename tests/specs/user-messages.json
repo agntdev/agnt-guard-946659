@@ -1,0 +1,41 @@
+[
+  {
+    "name": "A private message receives a helpful reply",
+    "steps": [
+      {
+        "send": { "text": "Hello" },
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": { "text": "Sorry, I didn't understand that. Try /help." }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "A normal group message confirms GroupGuard is active",
+    "steps": [
+      {
+        "send": {
+          "update": {
+            "update_id": 900,
+            "message": {
+              "message_id": 900,
+              "date": 0,
+              "chat": { "id": -900, "type": "supergroup", "title": "Test group" },
+              "from": { "id": 90, "is_bot": false, "first_name": "Member" },
+              "text": "Hello"
+            }
+          }
+        },
+        "expect": [
+          {
+            "method": "sendMessage",
+            "payload": { "text": "GroupGuard is active. Tap /start to open the controls, or use /help for guidance." }
+          }
+        ]
+      }
+    ]
+  }
+]

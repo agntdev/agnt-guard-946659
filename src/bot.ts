@@ -84,9 +84,9 @@ export async function buildBot(token: string, opts: BuildBotOptions = {}) {
   const handlers = opts.handlers ?? (await loadHandlersFromDisk());
   for (const h of handlers) bot.use(h);
 
-  // Ordinary group conversation must stay quiet. A catch-all reply here would
-  // make GroupGuard interrupt every clean member message after moderation has
-  // inspected it. Keep the recovery hint for private chats only.
+  // Keep a private-chat recovery hint for input that is not handled by a
+  // feature. Clean group acknowledgements are sent by the spam-detection
+  // handler only after that moderation pipeline has inspected the message.
   bot.on("message", (ctx) => {
     if (ctx.chat?.type === "private") {
       return ctx.reply("Sorry, I didn't understand that. Try /help.");
