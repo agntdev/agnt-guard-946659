@@ -15,6 +15,7 @@ import { buildBot, type Ctx } from "./bot.js";
 import { handlers } from "./handlers.generated.js";
 import { createDurableSessionStorage, type WorkerEnv } from "./toolkit/session/durable.js";
 import { setDefaultCommands } from "./toolkit/index.js";
+import { useStoreStorage, type ChatData } from "./store.js";
 
 export { ChatDO } from "./toolkit/session/durable.js";
 
@@ -31,6 +32,12 @@ let botPromise: Promise<Bot<Ctx>> | null = null;
 function getBot(env: WorkerEnv): Promise<Bot<Ctx>> {
   if (!botPromise) {
     botPromise = (async () => {
+      // Session state alone is not GroupGuard's database. Route member,
+      // verification, infraction, and audit records through the same Durable
+      // Object-backed adapter so they survive isolate eviction and requests
+      // handled by different Worker isolates.
+      const domainStorage = createDurableSessionStorage<ChatData | { chatIds: string[] }>(env);
+      useStoreStorage(domainStorage);
       // Expose the runtime env to handlers (Workers-only; the harness never sets
       // it) BEFORE they run — a handler reaches bindings + helpers through it
       // (remindAt(ctx.env, …), ctx.env.DB). buildBot installs `handlers` in array
